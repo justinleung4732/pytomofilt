@@ -3,9 +3,23 @@ import numpy as np
 
 import pyshtools as shtools
 
+from . import spline
+
+KNOT_RADII = [1.00000, 0.96512, 0.92675, 0.88454, 0.83810, 0.78701,
+              0.73081, 0.66899, 0.60097, 0.52615, 0.44384, 0.35329,
+              0.25367, 0.14409, 0.02353, -0.10909, -0.25499, -0.41550,
+              -0.59207, -0.78631, -1.00000]
+
 class RTS_Model(Model):
 
     def __init__(self):
+        self.rcmb = 3480.0
+        self.rmoho = 6346.691
+
+        # Declare spline knots and calculate spline
+        self.knots_r = (self.rmoho - self.rcmb) / 2.0 * np.array(KNOT_RADII) + \
+                       (self.rmoho + self.rcmb) / 2.0
+        self.knot_splines = spline.calculate_splines(self.knots_r)
 
     def from_file(self, filename):
 
@@ -23,6 +37,7 @@ class RTS_Model(Model):
         for i, p in vs_points:
             real_coefs = shtools.SHCoeffs.from_zeros(lmax, kind='real', 
                                         normalization='ortho', csphase=1)
+
             cilm, chi2 = shtools.expand.SHExpandLSQ(p, lat, lon, lmax = sh_deg, norm = 4, csphase = -1) # SHExpandLSQ only works for real coefficients
             real_coefs.coeffs = cilm
             cilm[1] = -cilm[1]  # Minus sign for imaginary part because real coefficients for 
@@ -46,9 +61,9 @@ class RTS_Model(Model):
 
             sh_coefs[i] = rts_coefs
 
-        # Apply spline to data
+        # Calculate coefficients at spline knots
+        self.s_model = spline.cubic_spline(sh_coefs, depths, self.knot_splines) # Coefficients at the spline knot 
 
-        
     def filter_from_file(self, filename):
 
     def filter(self, model):
@@ -57,8 +72,3 @@ class RTS_Model(Model):
     
     def write(self, filename):
 
-
-KNOT_RADII = [1.00000, 0.96512, 0.92675, 0.88454, 0.83810, 0.78701,
-              0.73081, 0.66899, 0.60097, 0.52615, 0.44384, 0.35329,
-              0.25367, 0.14409, 0.02353, -0.10909, -0.25499, -0.41550,
-              -0.59207, -0.78631, -1.00000]
