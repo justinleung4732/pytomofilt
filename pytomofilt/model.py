@@ -1,6 +1,6 @@
+import dataclasses
 
 import numpy as np
-
 import pyshtools as shtools
 
 from . import spline
@@ -10,7 +10,21 @@ KNOT_RADII = [1.00000, 0.96512, 0.92675, 0.88454, 0.83810, 0.78701,
               0.25367, 0.14409, 0.02353, -0.10909, -0.25499, -0.41550,
               -0.59207, -0.78631, -1.00000]
 
-class RTS_Model(Model):
+
+@dataclasses.dataclass
+class RealLayer:
+    depth: float
+    lats: list[float]
+    lons: list[float]
+    vals: list[float]
+
+
+@dataclasses.dataclass
+class RealLayerModel:
+    layers: list[RealLayer]
+
+
+class RTS_Model:
 
     def __init__(self):
         self.rcmb = 3480.0
@@ -21,7 +35,10 @@ class RTS_Model(Model):
                        (self.rmoho + self.rcmb) / 2.0
         self.knot_splines = spline.calculate_splines(self.knots_r)
 
+
     def from_file(self, filename):
+        pass
+
 
     def from_layers(self, filename, header = None, sh_deg = 40):
         # Read file
@@ -64,11 +81,18 @@ class RTS_Model(Model):
         # Calculate coefficients at spline knots
         self.s_model = spline.cubic_spline(sh_coefs, depths, self.knot_splines) # Coefficients at the spline knot 
 
+
     def filter_from_file(self, filename):
+        pass
+
 
     def filter(self, model):
+        pass
     
+
     def correlate(self, model):
+        pass
+
     
     def write(self, filename):
-
+        pass

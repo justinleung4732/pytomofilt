@@ -1,5 +1,6 @@
-import scipy.interpolate.CubicSpline as CubicSpline
+import scipy.interpolate as spi
 import scipy.linalg
+import numpy as np
 
 # Function to calculate 3-point derivative clamped spline
 def clamped_cubic_spline(x, y):
@@ -24,7 +25,7 @@ def clamped_cubic_spline(x, y):
     """
     start_deriv = (y[0]*(2*x[0]-x[1]-x[2])*(x[2]-x[1]) + y[1]*(x[2]-x[0])**2 - y[2]*(x[1] - x[0])**2)/((x[1] - x[0]) * (x[2] - x[0]) * (x[2] - x[1]))
     end_deriv = (y[-1]*(2*x[-1]-x[-2]-x[-3])*(x[-3]-x[-2]) + y[-2]*(x[-3]-x[-1])**2 - y[-3]*(x[-2] - x[-1])**2)/((x[-2] - x[-1]) * (x[-3] - x[-1]) * (x[-3] - x[-2]))
-    ccs = CubicSpline(x, y, bc_type=((1, start_deriv),(1, end_deriv)), extrapolate=None)
+    ccs = spi.CubicSpline(x, y, bc_type=((1, start_deriv),(1, end_deriv)), extrapolate=None)
     
     return ccs
 

@@ -1,3 +1,4 @@
 pyshtools
 cartopy
 terratools
+pytest
