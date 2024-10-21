@@ -1,0 +1,3 @@
+pyshtools
+cartopy
+terratools
