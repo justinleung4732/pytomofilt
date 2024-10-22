@@ -109,12 +109,92 @@ class RTS_Model:
 
 
     def filter(self, model):
-
+        """
+        Apply this model's resolution filter to another model instance
+        
+        Both models must be parameterized the same way (i.e. spherical 
+        harmonics at the knots of cubic splines). Typically the model
+        with a resolution operator will be from a tomographic inversion
+        and the model to be operated on (the argument to this method)
+        will be from some other high resolution source - e.g. a geodynamic
+        simulation. Note that the filter must be loaded before calling this
+        method.
+        
+        Parameters
+        ----------
+        model: another instance of the RTS_Model class
+        
+        Returns
+        -------
+        filtered_model: a copy of model, having been filtered using the
+            resolution operator. This is the same resolution of the model
+            containing the filter.
+        """
         assert self.filter_obj is not None, "You must use filter_from_file() to add the filter"
-        # get models as "vector"
-        # call filter
-        # Create output model
+        assert isinstance(model, RTS_Model), "Input model must be an instance of RTS_Model to be filtered" 
+        x = model.as_vector()
+        x = model.filter.apply_filter(x)
+        output_model = RTS_Model() # FIXME: need to pass the dimensions of self here (which need to be in our __init__)
+        output_model.from_vector(x)
+        return output_model
+        
+
+    def as_vector(self):
+        """
+        Return 1D vector representing the model object
+        
+        This is the order needed for filtering
+        (and matches the elements in the files)
+        """
+        # FIXME: size paraemeters. We should be able
+        # to get these from the shell definitions...
+        lmx = 12 # This is just lmax
+        ndp = 21 # What is this? number of depths?
+        # ndp comes from (24 - 4 + 1) + (24 - 4 + 1) = 42
+        # where 24 and 4 are numbers in the .spt header...
+        # we only need half for S or P
+        natd = (lmx + 1)**2 
+        lenatd = natd * ndp
     
+        vector = np.empty((lenatd))
+        counter = 0
+        # FIXME: Maybe numba this loop?
+        for ri in range(len(self.knots_r)):
+            for li in range(self.degree + 1):
+                for mi in range(li+1):
+                    vector[counter] = self.coefs[ri,0,li,mi]
+                    counter = counter + 1
+                    if mi != 0:
+                        vector[counter] = self.coefs[ri,1,li,mi]
+                        counter = counter + 1
+
+        assert counter == lenatd, "missing vals" 
+        return vector
+    
+
+    def from_vector(self, vector):
+        """
+        Fill out the model coefficients from a 1D vector
+        """
+        lmx = 12 # This is just lmax
+        ndp = 21 # What is this? number of depths?
+        # ndp comes from (24 - 4 + 1) + (24 - 4 + 1) = 42
+        # where 24 and 4 are numbers in the .spt header...
+        # we only need half for S or P
+        natd = (lmx + 1)**2 
+        lenatd = natd * ndp
+        
+        counter = 0
+        # FIXME: Maybe numba this loop?
+        for ri in range(len(self.knots_r)):
+            for li in range(self.degree + 1):
+                for mi in range(li+1):
+                    self.coefs[ri,0,li,mi] = vector[counter]
+                    counter = counter + 1
+                    if mi != 0:
+                        self.coefs[ri,1,li,mi] = vector[counter]
+                        counter = counter + 1
+
 
     def correlate(self, model):
         pass
