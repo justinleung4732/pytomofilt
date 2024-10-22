@@ -68,7 +68,7 @@ def cubic_spline(coefs, depth, splines):
 
     Returns
     -------
-    np.ndarray
+    coef_rts: np.ndarray
         An array of coefficients evaluated at each of the spline knots.
     """
     if coefs.ndim > 2:

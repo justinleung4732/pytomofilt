@@ -2,3 +2,4 @@ pyshtools
 cartopy
 terratools
 pytest
+numba

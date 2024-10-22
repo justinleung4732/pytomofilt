@@ -4,3 +4,6 @@
 # Python temporary files
 __pycache__
 *.pyc
+
+# VS code stuff
+.vscode
