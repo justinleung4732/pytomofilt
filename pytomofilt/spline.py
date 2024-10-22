@@ -1,5 +1,5 @@
 import scipy.interpolate as spi
-import scipy.linalg
+import scipy.linalg as spl
 import numpy as np
 
 # Function to calculate 3-point derivative clamped spline
@@ -20,7 +20,7 @@ def clamped_cubic_spline(x, y):
 
     Returns
     -------
-    scipy.interpolate._cubic.CubicSpline object
+    scipy.interpolate.CubicSpline object
         A callable object that returns the value of the splines at the called location.
     """
     start_deriv = (y[0]*(2*x[0]-x[1]-x[2])*(x[2]-x[1]) + y[1]*(x[2]-x[0])**2 - y[2]*(x[1] - x[0])**2)/((x[1] - x[0]) * (x[2] - x[0]) * (x[2] - x[1]))
@@ -41,7 +41,7 @@ def calculate_splines(knots):
 
     Returns
     -------
-    scipy.interpolate._cubic.CubicSpline object
+    scipy.interpolate.CubicSpline object
         A callable object that returns the weights of each of the splines at the called location.
     """
     spl = np.zeros((len(knots),len(knots)))
@@ -50,17 +50,26 @@ def calculate_splines(knots):
 
 def cubic_spline(coefs, depth, splines):
     """
-    Calculate_splines calculates the cubic splines based on the knot points provided
+    Cubic_spline calculates coefficients at the knot points
 
     Parameters
     ----------
-    knots : list (n)
-        A list of locations at which to anchor the splines at.
+    coefs : array
+        An array containing the coefficients evaluated at each depth. The first axis
+        must be the same length as depth.
+    
+    depth: list (n)
+        A list containing values of the depth of each layer.
+
+    splines: scipy.interpolate.CubicSpline object
+        A callable CublineSpline object, which is the output from the calculate_splines
+        function above. It returns the weights of each of the splines at the called 
+        location.
 
     Returns
     -------
-    scipy.interpolate._cubic.CubicSpline object
-        A callable object that returns the weights of each of the splines at the called location.
+    np.ndarray
+        An array of coefficients evaluated at each of the spline knots.
     """
     if coefs.ndim > 2:
         coefs_redim = coefs.reshape((len(depth), -1))
@@ -68,7 +77,7 @@ def cubic_spline(coefs, depth, splines):
         coefs_redim = coefs
 
     wgt_layers = splines(depth)
-    coef_rts = scipy.linalg.lstsq(wgt_layers,coefs_redim)[0]
+    coef_rts = spl.lstsq(wgt_layers,coefs_redim)[0]
 
     if coef_rts.ndim == 1:
         coef_rts = coef_rts[:,None] # mandating that matrix must be 2 dimensional
