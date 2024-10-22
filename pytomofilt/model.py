@@ -7,11 +7,13 @@ import pyshtools as shtools
 from . import spline
 from . import filter
 
-KNOT_RADII = [1.00000, 0.96512, 0.92675, 0.88454, 0.83810, 0.78701,
+# Magic numbers from S20RTS model defs (and everything else)
+_KNOT_RADII = [1.00000, 0.96512, 0.92675, 0.88454, 0.83810, 0.78701,
               0.73081, 0.66899, 0.60097, 0.52615, 0.44384, 0.35329,
               0.25367, 0.14409, 0.02353, -0.10909, -0.25499, -0.41550,
               -0.59207, -0.78631, -1.00000]
-
+_rcmb = 3480.0
+_rmoho = 6346.691
 
 @dataclasses.dataclass
 class RealLayer:
@@ -26,17 +28,23 @@ class RealLayerModel:
     layers: list[RealLayer]
 
 
+
 class RTS_Model:
 
-    def __init__(self):
-        self.rcmb = 3480.0
-        self.rmoho = 6346.691
-
-        # Declare spline knots and calculate spline
-        self.knots_r = (self.rmoho - self.rcmb) / 2.0 * np.array(KNOT_RADII) + \
-                       (self.rmoho + self.rcmb) / 2.0
+    def __init__(self, lmax, rmin=_rcmb, rmax=_rmoho, knots=None):
+        self.rmax = rmax
+        self.rmin = rmin
+        if knots is None:
+            # Declare spline knots from default
+            self.knots_r = (self.rmin - self.rmax) / 2.0 * np.array(_KNOT_RADII) + \
+                           (self.rmin + self.rmax) / 2.0
+        else:
+            self.knots_r = np.asarray(knots) # Should cast into array
+        # Build splines
         self.knot_splines = spline.calculate_splines(self.knots_r)
         self.filter_obj = None
+        # storage for model - radius, real/imag, degree, order:
+        self.coefs = np.empty((len(self.knots_r), 2, lmax+1, lmax+1))
 
 
     def from_file(self, filename):
@@ -190,8 +198,8 @@ class RTS_Model:
         assert self.filter_obj is not None, "You must use filter_from_file() to add the filter"
         assert isinstance(model, RTS_Model), "Input model must be an instance of RTS_Model to be filtered" 
         x = model.as_vector()
-        x = model.filter.apply_filter(x)
-        output_model = RTS_Model() # FIXME: need to pass the dimensions of self here (which need to be in our __init__)
+        x = self.filter.apply_filter(x)
+        output_model = RTS_Model(self.lmax, self.rmin, self.rmax, self.knots_r)
         output_model.from_vector(x)
         return output_model
         
