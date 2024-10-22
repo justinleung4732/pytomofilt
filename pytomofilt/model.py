@@ -115,11 +115,7 @@ class RTS_Model:
         ----------
         directory : str
             The directory that contains the files to be read.
-        
-        sh_deg: int
-            The maximum spherical degree calculated for the reparameterisation. The default is set to 40.
 
-        
         File format example
         ----------
         0.0 90.0 10.0
@@ -155,8 +151,6 @@ class RTS_Model:
             A list of RealLayer objects, where each RealLayer object represents a list of values at a list
             of longitude and latitude points at a certain depth.
         
-        sh_deg: int
-            The maximum spherical degree calculated for the reparameterisation. The default is set to 40.
         """
         assert isinstance(layer_model, RealLayerModel), "layer model must be an instance of RealLayerModel"
         # Reparameterise file laterally
