@@ -48,14 +48,60 @@ class RTS_Model:
 
 
     def from_file(self, filename):
-        pass
+        """
+        Inputs values from .sph files. 
+
+        Parameters
+        ----------
+        filename : str
+            Filename of the .sph file to be read.
+        
+        """
+        f = open(filename, 'r')
+        header = None
+        dataline = []
+        ri = 0
+        li = 0
+        for line in f:
+            if header is None:
+                header = line.split()
+                assert int(header[0]) == self.lmax, "wrong SH degree"
+            else:
+                dataline.extend(line.split())
+                if len(dataline) == (li * 2) + 1:
+                    # We have all the data, process the line
+                    assert ri <= len(self.knots_r), "Too many lines!"
+
+                    mi = 0
+                    for m, coef in enumerate(dataline):
+                        if m == 0:
+                            self.coefs[ri,0,li,mi] = float(coef)
+                            mi = mi + 1
+                        elif m%2 == 1:
+                            # Odd number in list, real coef
+                            self.coefs[ri,0,li,mi] = float(coef)
+                            # don't increment mi!
+                        else:
+                            # even number in list, imag coef
+                            self.coefs[ri,1,li,mi] = float(coef)
+                            mi = mi + 1
+
+                    li = li + 1
+                    if li > self.lmax:
+                        li = 0
+                        ri = ri + 1 
+                    dataline = []
+
+                assert len(dataline) < (li * 2) + 1, "Too much data"
+
+        f.close()
     
 
     def from_terra(self, terra_file):
         pass
 
     
-    def from_directory(self, directory, sh_deg = 40):
+    def from_directory(self, directory):
         """
         Inputs values from files stored in a directory, and automatically reparameterises the data (see 
         reparam for more information). 
@@ -94,10 +140,10 @@ class RTS_Model:
             layers.append(RealLayer(depth[i], lons = data[:,0],
                                     lats = data[:,1], vals = data[:,2]))
         
-        reparam(RealLayerModel(layers), sh_deg = sh_deg)
+        self.reparam(RealLayerModel(layers))
     
 
-    def reparam(self, layer_model, sh_deg = 40):
+    def reparam(self, layer_model):
         """
         Reparameterises the model laterally into spherical harmonics and vertically in a three-point clamped
         cubic spline functions. The output is the coefficients evaluated at the spline knots, and is saved
@@ -114,15 +160,15 @@ class RTS_Model:
         """
         assert isinstance(layer_model, RealLayerModel), "layer model must be an instance of RealLayerModel"
         # Reparameterise file laterally
-        sh_coefs = np.zeros((len(layer_model.layers), 2, sh_deg, sh_deg))
+        sh_coefs = np.zeros_like(self.coefs)
 
         for i, layer in layer_model.layers:
-            real_coefs = shtools.SHCoeffs.from_zeros(lmax, kind='real', 
-                                        normalization='ortho', csphase=1)
+            real_coefs = shtools.SHCoeffs.from_zeros(self.lmax, kind='real', 
+                                                     normalization='ortho', csphase=1)
 
             # SHExpandLSQ only works for real coefficients
             cilm, chi2 = shtools.expand.SHExpandLSQ(layer.vals, layer.lats, layer.lons, 
-                                                    lmax = sh_deg, norm = 4, csphase = -1)
+                                                    lmax = self.lmax, norm = 4, csphase = -1)
             real_coefs.coeffs = cilm
             cilm[1] = -cilm[1]  # Minus sign for imaginary part because real coefficients for 
                                 # sin store negative m degrees, where sin(-m*phi) = -sin(m*phi)
@@ -146,7 +192,8 @@ class RTS_Model:
             sh_coefs[i] = rts_coefs
 
         # Calculate coefficients at spline knots
-        self.s_model = spline.cubic_spline(sh_coefs, depths, self.knot_splines) # Coefficients at the spline knot 
+        self.coefs = spline.cubic_spline(sh_coefs, [l.depth for l in layer_model.layers],
+                                         self.knot_splines)
 
 
     def filter_from_file(self, evec_file, wght_file, damping, verbose=False):
@@ -225,7 +272,7 @@ class RTS_Model:
         counter = 0
         # FIXME: Maybe numba this loop?
         for ri in range(len(self.knots_r)):
-            for li in range(self.degree + 1):
+            for li in range(self.lmax + 1):
                 for mi in range(li+1):
                     vector[counter] = self.coefs[ri,0,li,mi]
                     counter = counter + 1
@@ -252,7 +299,7 @@ class RTS_Model:
         counter = 0
         # FIXME: Maybe numba this loop?
         for ri in range(len(self.knots_r)):
-            for li in range(self.degree + 1):
+            for li in range(self.lmax + 1):
                 for mi in range(li+1):
                     self.coefs[ri,0,li,mi] = vector[counter]
                     counter = counter + 1
@@ -266,4 +313,54 @@ class RTS_Model:
 
     
     def write(self, filename):
-        pass
+        """
+        Writes the coefficients of the model as a .sph file. 
+
+        Parameters
+        ----------
+        filename : str
+            Filename of the .sph file to be saved.
+        
+        """
+        f = open(filename, 'w')
+
+        # Write header - see line 27 of wsphhead.f
+        f.write("           {:4} {}{:4} {} \n".format(self.lmax,
+                "1"*(self.lmax+1), 24, "000111111111111111111111"))
+        # Write the body
+        self._write_sph_body_lines(f)
+        f.close()
+
+
+    def _write_sph_body_lines(self, fhandle):
+        """
+        Write the body of an SPH file to fhandle
+
+        This exists as a seperate method for use in writing SPT files
+        """
+        # Write coefs (knot by knot, and l by l)
+        for ri in range(len(self.knots_r)):
+            for li in range(self.lmax+1):
+                line = ""
+                items = 0
+                for mi in range(li+1):
+                    line = line + " {: 10.4E}".format(self.coefs[ri,0,li,mi])
+                    items = items + 1
+                    if items == 11: 
+                        line = line + "\n"
+                        items = 0
+                    if mi != 0:
+                        # NB: the examples files are all "0.nnnnE-nn" for the 
+                        #     values. This gives "n.nnn0E-nn" for the output 
+                        #     (with a larger exponent). This is probably OK.
+                        #     We could try to get bit for bit equivelance, but
+                        #     I struggled with the fortranformat module.
+                        line = line + " {: 10.4E}".format(
+                                                    self.coefs[ri,1,li,mi])
+                        items = items + 1
+                        if items == 11: 
+                            line = line + "\n"
+                            items = 0
+                if items != 0:
+                    line = line + "\n"
+                fhandle.write(line)
