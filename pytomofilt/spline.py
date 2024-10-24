@@ -11,10 +11,10 @@ def clamped_cubic_spline(x, y):
 
     Parameters
     ----------
-    x : list (n)
+    x : array_like (n)
         1-D array containing values of the independent variable. Values must be real,
         finite and in strictly increasing order.
-    y : list (n, k)
+    y : array_like (n, k)
         Array containing values of the dependent variable. The length along the first 
         axis must match the length of x. Values must be finite.
 
@@ -23,6 +23,13 @@ def clamped_cubic_spline(x, y):
     scipy.interpolate.CubicSpline object
         A callable object that returns the value of the splines at the called location.
     """
+    # Check that x must at least have 3 entries
+    assert len(x) >= 3, "x must have 3 or more entries"
+    # Check that entries in x are in ascending order
+    assert np.all(sorted(x) == x), "List must be in ascending order" 
+    # Check that length of x == length of y at axis = 0
+    assert len(x) == y.shape[0], "length of y at axis 0 must be the same length as x"
+
     start_deriv = (y[0]*(2*x[0]-x[1]-x[2])*(x[2]-x[1]) + y[1]*(x[2]-x[0])**2 - y[2]*(x[1] - x[0])**2)/((x[1] - x[0]) * (x[2] - x[0]) * (x[2] - x[1]))
     end_deriv = (y[-1]*(2*x[-1]-x[-2]-x[-3])*(x[-3]-x[-2]) + y[-2]*(x[-3]-x[-1])**2 - y[-3]*(x[-2] - x[-1])**2)/((x[-2] - x[-1]) * (x[-3] - x[-1]) * (x[-3] - x[-2]))
     ccs = spi.CubicSpline(x, y, bc_type=((1, start_deriv),(1, end_deriv)), extrapolate=None)
@@ -37,15 +44,15 @@ def calculate_splines(knots):
     Parameters
     ----------
     knots : list (n)
-        A list of locations at which to anchor the splines at.
+        A list of locations at which to anchor the splines at. Entries need to be in
+        ascending order
 
     Returns
     -------
     scipy.interpolate.CubicSpline object
         A callable object that returns the weights of each of the splines at the called location.
     """
-    spl = np.zeros((len(knots),len(knots)))
-    np.fill_diagonal(spl,1)
+    spl = np.identity(len(knots))
     return clamped_cubic_spline(knots,spl)
 
 def cubic_spline(coefs, depth, splines):
