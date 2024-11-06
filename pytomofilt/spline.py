@@ -61,7 +61,7 @@ def cubic_spline(coefs, depth, splines):
 
     Parameters
     ----------
-    coefs : array
+    coefs : array (n,)
         An array containing the coefficients evaluated at each depth. The first axis
         must be the same length as depth.
     
@@ -78,6 +78,12 @@ def cubic_spline(coefs, depth, splines):
     coef_rts: np.ndarray
         An array of coefficients evaluated at each of the spline knots.
     """
+
+    assert len(depth) == coefs.shape[0], "first axis of coefs array must be the \
+                                          same length as depth"
+    assert len(depth) >= len(splines.x), f"Number of depth points be equal or more \
+                                          than {len(splines.x)}"
+
     if coefs.ndim > 2:
         coefs_redim = coefs.reshape((len(depth), -1))
     else:

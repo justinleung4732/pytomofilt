@@ -57,14 +57,40 @@ class TestCubicSpline(unittest.TestCase):
         super(TestCubicSpline, self).__init__(*args, **kwargs)
         
         # Create a CubicSpline object to use for testing cubic_spline function
-        knots = np.array([1,2,6,8,10.0,13.2,15.7,18.0])
-        self.splines = spl.calculate_splines(knots)
+        self.knots = np.arange(0,22,3)
+        self.splines = spl.calculate_splines(self.knots)
+    
+    def test_unequal_depth_and_coefs(self):
+        with self.assertRaises(AssertionError):
+            spl.cubic_spline(np.array([0.6,0.8,0.2]), 
+                                      [1,2,3,4], self.splines)
 
+
+    def test_less_depth_points_than_knots(self):
+        with self.assertRaises(AssertionError):
+            # number of depths (5) < number of knots (8)
+            spl.cubic_spline(np.array([0.2,0.6,0.1,-0.3,-1]), 
+                             [1,2,3,4,5], self.splines) 
 
     def test_same_knots_and_depth(self):
-        pts = np.array([1,2,6,8,10.0,13.2,15.7,18.0])
-        spl_mtx = np.diag([1,3,5,2,3,5.5,2.3,8.0])
+        pts = self.knots
+        spl_mtx = np.array([[1,2],[3,5],[5,3.2],[2,1.5],
+                            [3,2.2],[5.5,5.5],[2.3,0.3],[8.0,-3.0],])
         coefs = spl.cubic_spline(spl_mtx, pts, self.splines)
 
         # Accurate to 10 decimal places
         npt.assert_array_almost_equal(coefs, spl_mtx, 10) 
+        
+    
+    # def test_return_correct_coefs(self):
+    #     coefs_at_knots = np.array([5,6.7,8.0,1.5,2,3.4,5,0.2])
+
+    #     # Forward calculation to calculate coefficients at points
+    #     pts = np.array([1,3.5,6,7.2,8.2,9.3,10,15,16.2,25])
+    #     spl_mtx = np.matmul(coefs_at_knots, pts)
+    #     coefs = spl.cubic_spline(spl_mtx, pts, self.splines)
+    #     coefs_calculated = spl.cubic_spline(spl_mtx, pts, self.splines)
+
+    #     # Accurate to 10 decimal places
+    #     npt.assert_array_almost_equal(coefs_at_knots, 
+    #                                   coefs_calculated, 10) 
