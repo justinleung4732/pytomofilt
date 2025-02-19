@@ -32,6 +32,25 @@ class RealLayerModel:
 class RTS_Model:
 
     def __init__(self, lmax, rmin=_rcmb, rmax=_rmoho, knots=None):
+        """
+        Create an instance of the RTS model object
+
+        Parameters
+        ----------
+        lmax: int
+            The maximum spherical harmonic degree parameterised in this
+            model. 
+        rmin: float
+            The minimum radii of the RTS_model. If not specified, this
+            defaults to the radius of the CMB.
+        rmax: float
+            The maximum radii of the RTS_model. If not specified, this
+            defaults to the radius of the Moho.
+        knots: array_like (n)
+            The list of n radii points to calculate the model coefficients.
+            If None, default knot radii from the RTS models are used, which
+            are scaled to the maximum as rmax and minimum as rmin.
+        """
         self.rmax = rmax
         self.rmin = rmin
         if knots is None:
@@ -44,67 +63,86 @@ class RTS_Model:
         self.knot_splines = spline.calculate_splines(self.knots_r)
         self.filter_obj = None
         # storage for model - radius, real/imag, degree, order:
-        self.coefs = np.empty((len(self.knots_r), 2, lmax+1, lmax+1))
+        self.coefs = np.empty((len(self.knots_r), 2, lmax+1, lmax+1))    
 
 
-    def from_file(self, filename):
+    @classmethod
+    def from_file(cls, filename, rmin=_rcmb, rmax=_rmoho, knots=None):
         """
-        Inputs values from .sph files. 
+        Inputs coefficients from a .sph file. The coefficients should be evaluated
+        at the knot points specified. Coefficients are saved under the coefs 
+        attribute of this class.
 
         Parameters
         ----------
         filename : str
             Filename of the .sph file to be read.
-        
+        rmin: float
+            The minimum radii of the RTS_model. If not specified, this
+            defaults to the radius of the CMB.
+        rmax: float
+            The maximum radii of the RTS_model. If not specified, this
+            defaults to the radius of the Moho.
+        knots: array_like (n)
+            The list of n radii points to calculate the model coefficients.
+            If None, default knot radii from the RTS models are used, which
+            are scaled to the maximum as rmax and minimum as rmin.
         """
         f = open(filename, 'r')
-        header = None
+
+        header = next(f).split()
+        lmax = int(header[0])
+        coefs = np.empty((len(_KNOT_RADII), 2, lmax+1, lmax+1))    
+
         dataline = []
         ri = 0
         li = 0
-        for line in f:
-            if header is None:
-                header = line.split()
-                assert int(header[0]) == self.lmax, "wrong SH degree"
-            else:
-                dataline.extend(line.split())
-                if len(dataline) == (li * 2) + 1:
-                    # We have all the data, process the line
-                    assert ri <= len(self.knots_r), "Too many lines!"
+        for line in f:  # Reads from second line (header has already been read)
+            dataline.extend(line.split())
+            
+            assert len(dataline) == (li * 2) + 1, "Data not matching number of coefficients"
+            # We have all the data, process the line
+            assert ri <= len(_KNOT_RADII), "Too many lines!"
 
-                    mi = 0
-                    for m, coef in enumerate(dataline):
-                        if m == 0:
-                            self.coefs[ri,0,li,mi] = float(coef)
-                            mi = mi + 1
-                        elif m%2 == 1:
-                            # Odd number in list, real coef
-                            self.coefs[ri,0,li,mi] = float(coef)
-                            # don't increment mi!
-                        else:
-                            # even number in list, imag coef
-                            self.coefs[ri,1,li,mi] = float(coef)
-                            mi = mi + 1
+            mi = 0
+            for m, coef in enumerate(dataline):
+                if m == 0:
+                    coefs[ri,0,li,mi] = float(coef)
+                    mi = mi + 1
+                elif m%2 == 1:
+                    # Odd number in list, real coef
+                    coefs[ri,0,li,mi] = float(coef)
+                    # don't increment mi!
+                else:
+                    # even number in list, imag coef
+                    coefs[ri,1,li,mi] = float(coef)
+                    mi = mi + 1
 
-                    li = li + 1
-                    if li > self.lmax:
-                        li = 0
-                        ri = ri + 1 
-                    dataline = []
+            li = li + 1
 
-                assert len(dataline) < (li * 2) + 1, "Too much data"
+            if li > lmax:
+                li = 0
+                ri = ri + 1 
+            dataline = []
 
         f.close()
+
+        # Write to class
+        RTS = cls(lmax, rmin, rmax, knots)
+        RTS.coefs = coefs
+        return RTS
     
 
-    def from_terra(self, terra_file):
+    @classmethod
+    def from_terra(self, terra_file, rmin=_rcmb, rmax=_rmoho, knots=None):
         pass
 
     
-    def from_directory(self, directory):
+    @classmethod
+    def from_directory(cls, directory, lmax, rmin=_rcmb, rmax=_rmoho, knots=None):
         """
         Inputs values from files stored in a directory, and automatically reparameterises the data (see 
-        reparam for more information). 
+        reparam for more information). Coefficients are saved under the coefs attribute of this class.
         
         There should be a "depth_layers.dat" file that contains the list of depth layers. Each data file 
         should have an '.dat' extension, numbered in increasing order of depth. The data files be 
@@ -115,7 +153,20 @@ class RTS_Model:
         ----------
         directory : str
             The directory that contains the files to be read.
-
+        lmax: int
+            The maximum spherical harmonic degree parameterised in this
+            model. 
+        rmin: float
+            The minimum radii of the RTS_model. If not specified, this
+            defaults to the radius of the CMB.
+        rmax: float
+            The maximum radii of the RTS_model. If not specified, this
+            defaults to the radius of the Moho.
+        knots: array_like (n)
+            The list of n radii points to calculate the model coefficients.
+            If None, default knot radii from the RTS models are used, which
+            are scaled to the maximum as rmax and minimum as rmin.
+            
         File format example
         ----------
         0.0 90.0 10.0
@@ -136,7 +187,10 @@ class RTS_Model:
             layers.append(RealLayer(depth[i], lons = data[:,0],
                                     lats = data[:,1], vals = data[:,2]))
         
-        self.reparam(RealLayerModel(layers))
+        # Write to class
+        RTS = cls(lmax, rmin, rmax, knots)
+        RTS.reparam(RealLayerModel(layers))
+        return RTS
     
 
     def reparam(self, layer_model):
@@ -150,7 +204,6 @@ class RTS_Model:
         layer_model : RealLayerModel class object
             A list of RealLayer objects, where each RealLayer object represents a list of values at a list
             of longitude and latitude points at a certain depth.
-        
         """
         assert isinstance(layer_model, RealLayerModel), "layer model must be an instance of RealLayerModel"
         # Reparameterise file laterally
@@ -179,8 +232,8 @@ class RTS_Model:
             rts_coefs = np.array([real, imag])
 
             # RTS format multiples non-zero order (m) components by 2 and 
-            # divides all coefficients by 100
-            rts_coefs /= 100
+            # # divides all coefficients by 100
+            # rts_coefs /= 100
             rts_coefs[:,1:,1:] *= 2
 
             sh_coefs[i] = rts_coefs
@@ -206,10 +259,6 @@ class RTS_Model:
         Setting the optional verbose argument to True results in the more
         output being created. This is useful for debugging and comparing the
         run to the Fortran equivalent
-
-        Returns
-        -------
-        None
         """
         self.filter_obj = filter.Filter(evec_file, wght_file, damping, verbose)
 
@@ -232,7 +281,8 @@ class RTS_Model:
         
         Returns
         -------
-        filtered_model: a copy of model, having been filtered using the
+        filtered_model: RTS_Model class object
+            a copy of model, having been filtered using the
             resolution operator. This is the same resolution of the model
             containing the filter.
         """
@@ -251,6 +301,11 @@ class RTS_Model:
         
         This is the order needed for filtering
         (and matches the elements in the files)
+
+        Returns
+        -------
+        vector: array_like
+            a representation of the model coefficients as a 1D vector
         """
         # FIXME: size paraemeters. We should be able
         # to get these from the shell definitions...
@@ -281,6 +336,11 @@ class RTS_Model:
     def from_vector(self, vector):
         """
         Fill out the model coefficients from a 1D vector
+        
+        Parameters
+        -------
+        vector: array_like
+            a representation of the model coefficients as a 1D vector
         """
         lmx = 12 # This is just lmax
         ndp = 21 # What is this? number of depths?
@@ -331,6 +391,11 @@ class RTS_Model:
         Write the body of an SPH file to fhandle
 
         This exists as a seperate method for use in writing SPT files
+
+        Parameters
+        ----------
+        fhandle : handle
+            Handle of the file to be written.
         """
         # Write coefs (knot by knot, and l by l)
         for ri in range(len(self.knots_r)):

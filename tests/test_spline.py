@@ -7,16 +7,19 @@ import pytomofilt.spline as spl
 class TestClampedCubicSpline(unittest.TestCase):
 
     def test_less_than_three(self):
+        """Test whether the spline has more than 3 points."""
         with self.assertRaises(AssertionError):
             spl.clamped_cubic_spline([1,2], [1,2])
 
 
     def test_not_ascending_order(self):
+        """Test whether the x input for the spline is increasing."""
         with self.assertRaises(AssertionError):
             spl.clamped_cubic_spline([1,5,6,2,3], [1,2,3,4,5])
 
 
     def test_different_x_y_length(self):
+        """Test for equal length of inputs x and y"""
         x = np.array([1,2,3,4,5])
         y = np.array([[3,2,1,5], [1,2,3,4]])
 
@@ -25,6 +28,10 @@ class TestClampedCubicSpline(unittest.TestCase):
 
 
     def test_spline(self):
+        """
+        Test that the spline contains the correct properties and
+        returns the correct values
+        """
         x = np.array([1,2,3,4,5])
         y = np.array([[1,2,3,4,5], [5,2,3,1,0]]).T
         ccs = spl.clamped_cubic_spline(x,y)
@@ -36,6 +43,7 @@ class TestClampedCubicSpline(unittest.TestCase):
 class TestCalculateSpline(unittest.TestCase):
     
     def __init__(self, *args, **kwargs):
+        """Initialises an example cubic spline object."""
         super(TestCalculateSpline, self).__init__(*args, **kwargs)
         
         # Create a CubicSpline object
@@ -44,16 +52,19 @@ class TestCalculateSpline(unittest.TestCase):
 
 
     def test_knot_points(self):
+        """"Test that the spline gives the right weighting at a knot point."""
         npt.assert_array_equal(self.splines(8), [0,0,0,1,0,0,0,0])
     
     
     def test_sum_to_one(self):
+        """Test that the spline is normalised to 1."""
         self.assertEqual(sum(self.splines(3.1235)), 1)
 
 
 class TestCubicSpline(unittest.TestCase):
     
     def __init__(self, *args, **kwargs):
+        """Initialises an example cubic spline object."""
         super(TestCubicSpline, self).__init__(*args, **kwargs)
         
         # Create a CubicSpline object to use for testing cubic_spline function
@@ -62,12 +73,17 @@ class TestCubicSpline(unittest.TestCase):
     
 
     def test_unequal_depth_and_coefs(self):
+        """Test that the first dimension of coefs and depth inputs must be equal."""
         with self.assertRaises(AssertionError):
             spl.cubic_spline(np.array([0.6,0.8,0.2]), 
                                       [1,2,3,4], self.splines)
 
 
     def test_less_depth_points_than_knots(self):
+        """
+        Test that the length of the depth input must be more than the number
+        of knot points.
+        """
         with self.assertRaises(AssertionError):
             # number of depths (5) < number of knots (8)
             spl.cubic_spline(np.array([0.2,0.6,0.1,-0.3,-1]), 
@@ -75,6 +91,10 @@ class TestCubicSpline(unittest.TestCase):
 
 
     def test_same_knots_and_depth(self):
+        """
+        Test that the input and output coefficients should be the same if the
+        input depth values are the same as the knot points.
+        """
         pts = self.knots
         spl_mtx = np.array([[1,2],[3,5],[5,3.2],[2,1.5],
                             [3,2.2],[5.5,5.5],[2.3,0.3],[8.0,-3.0],])
@@ -85,6 +105,10 @@ class TestCubicSpline(unittest.TestCase):
 
 
     def test_return_correct_coefs(self):
+        """
+        Test that spl.cubic_spline returns the correct coefficients for
+        an example set of coefficients and depth inputs.
+        """
         coefs_at_knots = np.array([5,6.7,8.0,1.5,2,3.4,5,0.2])
 
         # Forward calculation to calculate coefficients at points
