@@ -1,6 +1,7 @@
 import unittest
 import unittest
 import numpy as np
+import numpy.testing as npt
 import tempfile
 import os
 
@@ -128,7 +129,7 @@ class TestFromDirectory(unittest.TestCase):
 
     def test_from_directory_valid(self):
         """Test normal loading from a valid directory."""
-        obj = mod.RTS_Model.from_directory(self.test_dir.name, lmax=5)
+        obj = mod.RTS_Model.from_directory(self.test_dir.name, lmax=5, knots=[10,20,30])
         self.assertIsInstance(obj, mod.RTS_Model)
     
 
@@ -136,22 +137,22 @@ class TestFromDirectory(unittest.TestCase):
         """Test behavior when depth_layers.dat is missing."""
         os.remove(self.depth_file)
         with self.assertRaises(FileNotFoundError):
-            mod.RTS_Model.from_directory(self.test_dir.name, lmax=5)
+            mod.RTS_Model.from_directory(self.test_dir.name, lmax=5, knots=[10,20,30])
     
 
     def test_from_directory_no_data_files(self):
         """Test behavior when there are no data files."""
         for i in range(3):
             os.remove(os.path.join(self.test_dir.name, f"layer_{i}.dat"))
-        with self.assertRaises(IndexError):
-            mod.RTS_Model.from_directory(self.test_dir.name, lmax=5)
+        with self.assertRaises(AssertionError):
+            mod.RTS_Model.from_directory(self.test_dir.name, lmax=5, knots=[10,20,30])
             
 
 class TestReparam(unittest.TestCase):
 
     def setUp(self):
         """Set up a test instance and a mock RealLayerModel."""
-        self.test_obj = mod.RTS_Model(lmax=5, rmin=1, rmax=10, knots=None)
+        self.test_obj = mod.RTS_Model(lmax=5, rmin=1, rmax=10, knots=[10,20,30])
         self.test_obj.coefs = np.zeros((3, 2, 6, 6))
 
         layers = []
@@ -167,7 +168,7 @@ class TestReparam(unittest.TestCase):
     def test_not_layermodel(self):
         """"Test whether layer_model input is a RealLayerModel object"""
         with self.assertRaises(AssertionError):
-            mod.RTS_Model.reparam('layer_model') 
+            self.test_obj.reparam('layer_model') 
 
     
     def test_reparam_valid(self):
@@ -191,9 +192,9 @@ class TestWrite(unittest.TestCase):
             temp_filename = temp_file.name
         
         self.assertTrue(os.path.exists(temp_filename))
-        obj = mod.RTS_Model.from_file(temp_filename)
+        obj = mod.RTS_Model.from_file(temp_filename, knots=[0.1, 0.2, 0.3])
         self.assertEqual(self.test_obj.lmax, obj.lmax)
-        self.assertEqual(self.test_obj.coefs, obj.coefs)
+        npt.assert_array_almost_equal(self.test_obj.coefs, obj.coefs)
         os.remove(temp_filename)
 
 
@@ -209,14 +210,17 @@ class TestFilterMethods(unittest.TestCase):
     def test_as_vector(self):
         """Test the as_vector method."""
         vector = self.test_obj.as_vector()
-        self.assertEqual(len(vector), (5 + 1) ** 2 * 21)  # Validate vector size
+        self.assertEqual(len(vector), (5 + 1) ** 2 * 3)  # Validate vector size
     
 
     def test_from_vector(self):
         """Test the from_vector method."""
         vector = np.ones((5 + 1) ** 2 * 21)
         self.test_obj.from_vector(vector)
-        self.assertTrue(np.all(self.test_obj.coefs == 1))
+        tril_r = np.tril_indices(6)
+        tril_i = tuple(arr+1 for arr in np.tril_indices(5))
+        self.assertTrue(np.all(self.test_obj.coefs[:,0,tril_r[0],tril_r[1]] == 1))
+        self.assertTrue(np.all(self.test_obj.coefs[:,1,tril_i[0],tril_i[1]] == 1))
     
 
     def test_filter(self):
