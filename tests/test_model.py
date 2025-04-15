@@ -30,7 +30,7 @@ class TestDataclass(unittest.TestCase):
                           [10.0, 20.0, 20.0, 20.0, 20.0, 10.0])
 
 
-class TestFromFile(unittest.Testcase):
+class TestFromFile(unittest.TestCase):
     
     def setUp(self):
         """Create a temporary .sph file for testing."""
@@ -147,7 +147,7 @@ class TestFromDirectory(unittest.TestCase):
             mod.RTS_Model.from_directory(self.test_dir.name, lmax=5)
             
 
-class TestReparam(unittest.Testcase):
+class TestReparam(unittest.TestCase):
 
     def setUp(self):
         """Set up a test instance and a mock RealLayerModel."""
