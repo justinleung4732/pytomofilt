@@ -6,9 +6,9 @@
   packages = ["pytomofilt"]
 
 [project]
-  name = "climate-aware-task-scheduler"
-  dynamic = ["version"]
-  description = "Climate aware task scheduler"
+  name = "pytomofilt"
+  dynamic = 0.1
+  description = "Tomographic filtering in python"
   authors = [
     { name = "Justin Leung" },
     { name = "Andrew Walker"},
@@ -23,6 +23,9 @@
     "Environment :: Console",
     "Intended Audience :: Science/Research",
   ]
-  dependencies = ["pyshtools", "cartopy", "terratools", "pytest", "numba", "scipy", "numpy"]
+  dependencies = ["pyshtools", "cartopy", "terratools", "numba", "scipy", "numpy"]
+
+  [project.optional-dependencies]
+    test = ["pytest", "pytest-cov"]
 
 
