@@ -25,6 +25,4 @@
   ]
   dependencies = ["pyshtools", "cartopy", "terratools", "pytest", "numba", "scipy", "numpy"]
 
-  [tool.setuptools.dynamic]
-    version = 0.1
 
