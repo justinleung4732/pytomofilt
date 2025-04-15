@@ -1,0 +1,31 @@
+[build-system]
+  requires = ['setuptools>=61.0.0']
+  build-backend = 'setuptools.build_meta'
+
+[tool.setuptools]
+  packages = ["pytomofilt"]
+
+[project]
+  name = "pytomofilt"
+  version = "0.1"
+  description = "Tomographic filtering in python"
+  authors = [
+    { name = "Justin Leung" },
+    { name = "Andrew Walker"},
+  ]
+  license = { file = "LICENSE" }
+  requires-python = ">=3.9"
+  readme = "README.md"
+  classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+  ]
+  dependencies = ["pyshtools", "cartopy", "terratools", "numba", "scipy", "numpy"]
+
+  [project.optional-dependencies]
+    test = ["pytest", "pytest-cov"]
+
+
