@@ -7,7 +7,7 @@
 
 [project]
   name = "pytomofilt"
-  version = 0.1
+  version = "0.1"
   description = "Tomographic filtering in python"
   authors = [
     { name = "Justin Leung" },
