@@ -94,9 +94,8 @@ class RTS_Model:
         header = next(f).split()
         lmax = int(header[0])
         if knots is None:
-            coefs = np.zeros((len(_KNOT_RADII), 2, lmax+1, lmax+1))    
-        else:
-            coefs = np.zeros((len(knots), 2, lmax+1, lmax+1))    
+            knots = _KNOT_RADII    
+        coefs = np.zeros((len(knots), 2, lmax+1, lmax+1))    
 
         # The format of the rest of the file is a little bit odd. Coefficients 
         # for each radius are listed in blocks and within these blocks coefficients
@@ -143,7 +142,7 @@ class RTS_Model:
             assert len(dataline) < (li * 2) + 1, f"Too much data, li={li}, data={dataline}"
 
         f.close()
-        assert ri == len(_KNOT_RADII), "End of file without seeing all expected radii"
+        assert ri == len(knots), f"End of file without seeing all expected radii, ri={ri}, knots={knots}"
         assert li == 0, "End of file without resetting L!"
 
         # Create new RTS model instance and return
