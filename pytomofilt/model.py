@@ -98,40 +98,55 @@ class RTS_Model:
         else:
             coefs = np.zeros((len(knots), 2, lmax+1, lmax+1))    
 
+        # The format of the rest of the file is a little bit odd. Coefficients 
+        # for each radius are listed in blocks and within these blocks coefficients
+        # for each l are listed in rows. However, the maximum number of coefficients
+        # all of the coefficients for a r,l combination. Things could go wrong if we
+        # per line is 11, so for l > 6 we have to read multiple lines before we have
+        # end up with too many coefficients for the r,l combination we expect and we
+        # trap that at the end of the loop. Otherwise the file could be too short, 
+        # in which case we won't have incremented ri enough.
         dataline = []
         ri = 0
         li = 0
         for line in f:  # Reads from second line (header has already been read)
             dataline.extend(line.split())
             
-            assert len(dataline) == (li * 2) + 1, "Data not matching number of coefficients"
-            # We have all the data, process the line
-            assert ri < len(_KNOT_RADII), "Too many lines!"
+            if len(dataline) == (li * 2) + 1:
+                # We have the right number of coefficients for this l
+                # so we can process it into the numpy array
+                mi = 0
+                for m, coef in enumerate(dataline):
+                    if m == 0:
+                        coefs[ri,0,li,mi] = float(coef)
+                        mi = mi + 1
+                    elif m%2 == 1:
+                        # Odd number in list, real coef
+                        coefs[ri,0,li,mi] = float(coef)
+                        # don't increment mi!
+                    else:
+                        # even number in list, imag coef
+                        coefs[ri,1,li,mi] = float(coef)
+                        mi = mi + 1
 
-            mi = 0
-            for m, coef in enumerate(dataline):
-                if m == 0:
-                    coefs[ri,0,li,mi] = float(coef)
-                    mi = mi + 1
-                elif m%2 == 1:
-                    # Odd number in list, real coef
-                    coefs[ri,0,li,mi] = float(coef)
-                    # don't increment mi!
-                else:
-                    # even number in list, imag coef
-                    coefs[ri,1,li,mi] = float(coef)
-                    mi = mi + 1
+                li = li + 1
 
-            li = li + 1
+                if li > lmax:
+                    # We have read all the coefficients for this radial
+                    # layer. Reset L and increment R. 
+                    li = 0
+                    ri = ri + 1 
+                    # FIXME - what if knots are provided
+                    assert ri <= len(_KNOT_RADII), "Too many lines when incrementing ri! ri={ri}"
+                dataline = [] # Start adding to a new set of coefficients
 
-            if li > lmax:
-                li = 0
-                ri = ri + 1 
-            dataline = []
+            assert len(dataline) < (li * 2) + 1, f"Too much data, li={li}, data={dataline}"
 
         f.close()
+        assert ri == len(_KNOT_RADII), "End of file without seeing all expected radii"
+        assert li == 0, "End of file without resetting L!"
 
-        # Write to class
+        # Create new RTS model instance and return
         RTS = cls(lmax, rmin, rmax, knots)
         RTS.coefs = coefs
         return RTS
