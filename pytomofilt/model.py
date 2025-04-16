@@ -116,6 +116,7 @@ class RTS_Model:
                 # so we can process it into the numpy array
                 mi = 0
                 for m, coef in enumerate(dataline):
+                    assert ri < len(knots), "Too many lines when incrementing ri! ri={ri}"
                     if m == 0:
                         coefs[ri,0,li,mi] = float(coef)
                         mi = mi + 1
@@ -134,9 +135,7 @@ class RTS_Model:
                     # We have read all the coefficients for this radial
                     # layer. Reset L and increment R. 
                     li = 0
-                    ri = ri + 1 
-                    # FIXME - what if knots are provided
-                    assert ri <= len(_KNOT_RADII), "Too many lines when incrementing ri! ri={ri}"
+                    ri = ri + 1
                 dataline = [] # Start adding to a new set of coefficients
 
             assert len(dataline) < (li * 2) + 1, f"Too much data, li={li}, data={dataline}"
