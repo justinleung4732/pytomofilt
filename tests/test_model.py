@@ -36,10 +36,11 @@ class TestFromFile(unittest.TestCase):
     def setUp(self):
         """Create a temporary .sph file for testing."""
         self.test_file = tempfile.NamedTemporaryFile(delete=False, mode='w')
-        self.test_file.write("5 1111111111111  24 000111111111111111111111\n")  # lmax = 5
-        self.test_file.write("0.1\n")  # Sample coefficients
-        self.test_file.write("0.2 0.3 0.4\n")
-        self.test_file.write("0.5 0.6 0.7 0.8 0.9\n")
+        self.test_file.write("2 1111111111111  24 000111111111111111111111\n")  # lmax = 5
+        for i in range(4):
+            self.test_file.write("0.1\n")  # Sample coefficients
+            self.test_file.write("0.2 0.3 0.4\n")
+            self.test_file.write("0.5 0.6 0.7 0.8 0.9\n")
         self.test_file.close()
     
 
@@ -50,9 +51,9 @@ class TestFromFile(unittest.TestCase):
 
     def test_from_file_valid(self):
         """Test normal loading from a valid .sph file."""
-        obj = mod.RTS_Model.from_file(self.test_file.name)
+        obj = mod.RTS_Model.from_file(self.test_file.name, knots=[0.1, 0.4, 0.6, 0.9])
         self.assertIsInstance(obj, mod.RTS_Model)
-        self.assertEqual(obj.lmax, 5)
+        self.assertEqual(obj.lmax, 2)
         self.assertTrue(isinstance(obj.coefs, np.ndarray))
     
 
