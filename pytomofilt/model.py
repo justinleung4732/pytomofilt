@@ -51,6 +51,7 @@ class RTS_Model:
             If None, default knot radii from the RTS models are used, which
             are scaled to the maximum as rmax and minimum as rmin.
         """
+        self.lmax = lmax
         self.rmax = rmax
         self.rmin = rmin
         if knots is None:
@@ -63,7 +64,7 @@ class RTS_Model:
         self.knot_splines = spline.calculate_splines(self.knots_r)
         self.filter_obj = None
         # storage for model - radius, real/imag, degree, order:
-        self.coefs = np.empty((len(self.knots_r), 2, lmax+1, lmax+1))    
+        self.coefs = np.zeros((len(self.knots_r), 2, lmax+1, lmax+1))    
 
 
     @classmethod
@@ -92,7 +93,10 @@ class RTS_Model:
 
         header = next(f).split()
         lmax = int(header[0])
-        coefs = np.empty((len(_KNOT_RADII), 2, lmax+1, lmax+1))    
+        if knots is None:
+            coefs = np.zeros((len(_KNOT_RADII), 2, lmax+1, lmax+1))    
+        else:
+            coefs = np.zeros((len(knots), 2, lmax+1, lmax+1))    
 
         dataline = []
         ri = 0
@@ -102,7 +106,7 @@ class RTS_Model:
             
             assert len(dataline) == (li * 2) + 1, "Data not matching number of coefficients"
             # We have all the data, process the line
-            assert ri <= len(_KNOT_RADII), "Too many lines!"
+            assert ri < len(_KNOT_RADII), "Too many lines!"
 
             mi = 0
             for m, coef in enumerate(dataline):
@@ -181,6 +185,7 @@ class RTS_Model:
         layers = []
         depth = np.loadtxt(os.path.join(directory, 'depth_layers.dat'))
         data_files = sorted([f for f in os.listdir(directory) if f.endswith('.dat') and f != 'depth_layers.dat'])
+        assert len(data_files) == len(depth), "Number of data files does not match number of depths"
 
         for i, filename in enumerate(data_files):
             data = np.loadtxt(os.path.join(directory, filename))
@@ -206,10 +211,12 @@ class RTS_Model:
             of longitude and latitude points at a certain depth.
         """
         assert isinstance(layer_model, RealLayerModel), "layer model must be an instance of RealLayerModel"
+        
         # Reparameterise file laterally
-        sh_coefs = np.zeros_like(self.coefs)
+        layer_depths = [l.depth for l in layer_model.layers]
+        sh_coefs = np.zeros((len(layer_depths),) + self.coefs.shape[1:])
 
-        for i, layer in layer_model.layers:
+        for i, layer in enumerate(layer_model.layers):
             real_coefs = shtools.SHCoeffs.from_zeros(self.lmax, kind='real', 
                                                      normalization='ortho', csphase=1)
 
@@ -239,7 +246,7 @@ class RTS_Model:
             sh_coefs[i] = rts_coefs
 
         # Calculate coefficients at spline knots
-        self.coefs = spline.cubic_spline(sh_coefs, [l.depth for l in layer_model.layers],
+        self.coefs = spline.cubic_spline(sh_coefs, layer_depths,
                                          self.knot_splines)
 
 
@@ -289,7 +296,7 @@ class RTS_Model:
         assert self.filter_obj is not None, "You must use filter_from_file() to add the filter"
         assert isinstance(model, RTS_Model), "Input model must be an instance of RTS_Model to be filtered" 
         x = model.as_vector()
-        x = self.filter.apply_filter(x)
+        x = self.filter_obj.apply_filter(x)
         output_model = RTS_Model(self.lmax, self.rmin, self.rmax, self.knots_r)
         output_model.from_vector(x)
         return output_model
@@ -307,13 +314,8 @@ class RTS_Model:
         vector: array_like
             a representation of the model coefficients as a 1D vector
         """
-        # FIXME: size paraemeters. We should be able
-        # to get these from the shell definitions...
-        lmx = 12 # This is just lmax
-        ndp = 21 # What is this? number of depths?
-        # ndp comes from (24 - 4 + 1) + (24 - 4 + 1) = 42
-        # where 24 and 4 are numbers in the .spt header...
-        # we only need half for S or P
+        lmx = self.lmax
+        ndp = len(self.knots_r)
         natd = (lmx + 1)**2 
         lenatd = natd * ndp
     
@@ -342,13 +344,6 @@ class RTS_Model:
         vector: array_like
             a representation of the model coefficients as a 1D vector
         """
-        lmx = 12 # This is just lmax
-        ndp = 21 # What is this? number of depths?
-        # ndp comes from (24 - 4 + 1) + (24 - 4 + 1) = 42
-        # where 24 and 4 are numbers in the .spt header...
-        # we only need half for S or P
-        natd = (lmx + 1)**2 
-        lenatd = natd * ndp
         
         counter = 0
         # FIXME: Maybe numba this loop?

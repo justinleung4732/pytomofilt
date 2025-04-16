@@ -81,8 +81,8 @@ def cubic_spline(coefs, depth, splines):
 
     assert len(depth) == coefs.shape[0], "first axis of coefs array must be the \
                                           same length as depth"
-    assert len(depth) >= len(splines.x), f"Number of depth points be equal or more \
-                                          than {len(splines.x)}"
+    assert len(depth) >= len(splines.x), f"Number of depth points must be equal \
+                                          or more than {len(splines.x)}"
 
     if coefs.ndim > 2:
         coefs_redim = coefs.reshape((len(depth), -1))
