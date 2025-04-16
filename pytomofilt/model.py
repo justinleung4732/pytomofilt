@@ -61,7 +61,7 @@ class RTS_Model:
         else:
             self.knots_r = np.asarray(knots) # Should cast into array
         # Build splines
-        self.knot_splines = spline.calculate_splines(self.knots_r)
+        self.knot_splines = spline.calculate_splines(self.knots_r[-1:0:-1])
         self.filter_obj = None
         # storage for model - radius, real/imag, degree, order:
         self.coefs = np.zeros((len(self.knots_r), 2, lmax+1, lmax+1))    
