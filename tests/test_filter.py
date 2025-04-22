@@ -166,6 +166,20 @@ class TestApplyFilter(unittest.TestCase):
             self.filt.apply_filter(x_too_large)
 
 
+    def test_apply_filter_incorrect_input_datatype(self):
+        """
+        Test that the elements in input model x must be float64
+        objects.
+        """
+        x_int = np.array([1,2,3,4], dtype=int)
+        with self.assertRaises(TypeError):
+            self.filt.apply_filter(x_int)
+        
+        x_32 = np.array([1,2,3,4], dtype=np.float32)
+        with self.assertRaises(TypeError):
+            self.filt.apply_filter(x_32)
+
+
     def test_apply_filter_correctly(self):
         # Create an input vector
         x = np.array([1.0, 2.0, 3.0, 4.0])
@@ -191,10 +205,10 @@ class TestApplyFilter(unittest.TestCase):
 
         # Calculating reference case
         self.filt.ismth = 0
-        x_out = self.filt.apply_filter(x)
+        x_ref = self.filt.apply_filter(x)
 
         npt.assert_array_equal(x_model_weights,
-                               x_out * self.filt.twts)
+                               x_ref * self.filt.twts)
 
 
     def test_apply_filter_crust_weighting(self):
@@ -209,8 +223,8 @@ class TestApplyFilter(unittest.TestCase):
 
         # Calculating reference case
         self.filt.icrust = 0
-        x_out = self.filt.apply_filter(x)
+        x_ref = self.filt.apply_filter(x)
 
         # Check crust weighting has been applied to first natd+1 elements
         npt.assert_array_equal(x_crustal[:self.filt.natd+1],
-                               x_out[:self.filt.natd+1] * 1000.0)
+                               x_ref[:self.filt.natd+1] * 1000.0)
