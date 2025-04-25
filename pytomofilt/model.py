@@ -373,7 +373,7 @@ class RTS_Model:
 
 
     def correlate(self, model):
-        pass
+        return None
 
     
     def write(self, filename):
