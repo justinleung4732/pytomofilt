@@ -48,8 +48,8 @@ def tomographic_model_from_path(input_path: Path) -> TomographicModelFiles:
 
 
 def ptf_reparam_filter_files(
-        tomographic_model: Annotated[Path, typer.Argument(help="Path to a directory containing a tomographic model and filter")] = Path(),
-        geodynamic_model: Annotated[Path, typer.Argument(help="Path to a directory containing data from a geodynamic model")] = Path()
+        tomographic_model: Annotated[Path, typer.Argument(help="Path to a directory containing a tomographic model and filter")],
+        geodynamic_model: Annotated[Path, typer.Argument(help="Path to a directory containing data from a geodynamic model")]
     ):
     """
     Reparameterize and filter a geodynamic model so it can be compared with tomography
