@@ -23,9 +23,12 @@
     "Environment :: Console",
     "Intended Audience :: Science/Research",
   ]
-  dependencies = ["pyshtools", "cartopy", "terratools", "numba", "scipy", "numpy"]
+  dependencies = ["pyshtools", "cartopy", "terratools", "numba", "scipy", "numpy", "typer", "typing_extensions"]
 
   [project.optional-dependencies]
     test = ["pytest", "pytest-cov"]
+
+  [project.scripts]
+  ptf_reparam_filter_files = "pytomofilt.cli:app"
 
 
