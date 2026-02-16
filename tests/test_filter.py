@@ -191,7 +191,8 @@ class TestApplyFilter(unittest.TestCase):
 
         self.assertEqual(x_out.shape, x.shape)
         self.assertFalse(np.array_equal(x_out, x))  # Confirm it has been modified
-
+        npt.assert_array_almost_equal(x_out,
+                                      np.array([10/11,4/5,3/4,2/3]))
 
     def test_apply_filter_a_priori_model_weights(self):
 
