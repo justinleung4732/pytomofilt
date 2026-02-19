@@ -6,6 +6,7 @@ import pyshtools as shtools
 
 from . import spline
 from . import filter
+from . import sh_tools as sh
 
 
 _rcmb = 3480.0
@@ -232,33 +233,12 @@ class RTS_Model:
         sh_coefs = np.zeros((len(layer_depths),) + self.coefs.shape[1:])
 
         for i, layer in enumerate(layer_model.layers):
-            real_coefs = shtools.SHCoeffs.from_zeros(self.lmax, kind='real', 
-                                                     normalization='ortho', csphase=1)
-
             # SHExpandLSQ only works for real coefficients
             cilm, chi2 = shtools.expand.SHExpandLSQ(layer.vals, layer.lats, layer.lons, 
                                                     lmax = self.lmax, norm = 4, csphase = -1)
-            real_coefs.coeffs = cilm
-            cilm[1] = -cilm[1]  # Minus sign for imaginary part because real coefficients for 
-                                # sin store negative m degrees, where sin(-m*phi) = -sin(m*phi)
 
-            complex_coefs = real_coefs.convert(normalization='ortho', csphase=-1, kind='complex', 
-                                    check=False).to_array()
-                                
-            # SHTOOLS stores the two arrays in axis 0 as positive m and negative m shells. We 
-            # want to match the RTS format of storing real part in the first array and
-            # imaginary part in the second array of axis 0
-            real = complex_coefs[0].real
-            imag = complex_coefs[0].imag
-
-            rts_coefs = np.array([real, imag])
-
-            # RTS format multiples non-zero order (m) components by 2 and 
-            # # divides all coefficients by 100
-            # rts_coefs /= 100
-            rts_coefs[:,1:,1:] *= 2
-
-            sh_coefs[i] = rts_coefs
+            # Convert coefficients to RTS format
+            sh_coefs[i] = sh.sh_to_rts(cilm)
 
         # Calculate coefficients at spline knots
         self.coefs = spline.cubic_spline(sh_coefs, layer_depths,
