@@ -230,12 +230,12 @@ def apply_filter_inner(x, eigvals, eigvecs, twts, damp):
     eta = eigvals[0] * damp
     # loop over the eigenvectors and values 
     # we read in
-    for i in numba.prange(eigvals.size+1):
+    for i in numba.prange(eigvals.size):
             
         w = ( (eigvals[i] / (eigvals[i] + eta)) * 
                np.sum(twtsinv[:] * x[:] * eigvecs[i,:]) )
 
-        x_out[:] += w * eigvecs[i,:]
+        x_out += w * eigvecs[i,:]
             
     return x_out
 

@@ -31,4 +31,8 @@
   [project.scripts]
   ptf_reparam_filter_files = "pytomofilt.cli:app"
 
+[tool.pytest.ini_options]
+pythonpath= [
+  "."
+]
 

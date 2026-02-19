@@ -1,5 +1,4 @@
 import unittest
-import unittest
 import numpy as np
 import numpy.testing as npt
 import tempfile
@@ -111,6 +110,7 @@ class TestFromFile(unittest.TestCase):
 
 
 class TestFromDirectory(unittest.TestCase):
+    
     def setUp(self):
         """Create a temporary directory with sample data."""
         self.test_dir = tempfile.TemporaryDirectory()
