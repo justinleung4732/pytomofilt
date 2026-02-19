@@ -4,6 +4,7 @@
 # Python temporary files
 __pycache__
 *.pyc
+*.egg-info
 
 # VS code stuff
 .vscode

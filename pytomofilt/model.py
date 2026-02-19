@@ -7,11 +7,7 @@ import pyshtools as shtools
 from . import spline
 from . import filter
 
-# Magic numbers from S20RTS model defs (and everything else)
-_KNOT_RADII = [1.00000, 0.96512, 0.92675, 0.88454, 0.83810, 0.78701,
-              0.73081, 0.66899, 0.60097, 0.52615, 0.44384, 0.35329,
-              0.25367, 0.14409, 0.02353, -0.10909, -0.25499, -0.41550,
-              -0.59207, -0.78631, -1.00000]
+
 _rcmb = 3480.0
 _rmoho = 6346.691
 
@@ -27,8 +23,15 @@ class RealLayer:
 class RealLayerModel:
     layers: list[RealLayer]
 
-
-
+def _default_radii(rmin=_rcmb, rmax=_rmoho):
+    # Magic numbers from S20RTS model defs (and everything else)
+    KNOT_RADII = np.array([1.00000, 0.96512, 0.92675, 0.88454, 0.83810, 0.78701,
+                            0.73081, 0.66899, 0.60097, 0.52615, 0.44384, 0.35329,
+                            0.25367, 0.14409, 0.02353, -0.10909, -0.25499, -0.41550,
+                            -0.59207, -0.78631, -1.00000])
+    knots_r = (rmin - rmax) / 2.0 * KNOT_RADII + (rmin + rmax) / 2.0
+    return knots_r
+    
 class RTS_Model:
 
     def __init__(self, lmax, rmin=_rcmb, rmax=_rmoho, knots=None):
@@ -56,8 +59,7 @@ class RTS_Model:
         self.rmin = rmin
         if knots is None:
             # Declare spline knots from default
-            self.knots_r = (self.rmin - self.rmax) / 2.0 * np.array(_KNOT_RADII) + \
-                           (self.rmin + self.rmax) / 2.0
+            self.knots_r = _default_radii(rmin=_rcmb, rmax=_rmoho)
         else:
             self.knots_r = np.asarray(knots) # Should cast into array
         # Build splines
@@ -94,7 +96,7 @@ class RTS_Model:
         header = next(f).split()
         lmax = int(header[0])
         if knots is None:
-            knots = _KNOT_RADII    
+            knots = _default_radii(rmin=rmin, rmax=rmax)    
         coefs = np.zeros((len(knots), 2, lmax+1, lmax+1))    
 
         # The format of the rest of the file is a little bit odd. Coefficients 
@@ -116,7 +118,7 @@ class RTS_Model:
                 # so we can process it into the numpy array
                 mi = 0
                 for m, coef in enumerate(dataline):
-                    assert ri < len(knots), "Too many lines when incrementing ri! ri={ri}"
+                    assert ri < len(knots), f"Too many lines when incrementing ri! ri={ri}"
                     if m == 0:
                         coefs[ri,0,li,mi] = float(coef)
                         mi = mi + 1
@@ -371,7 +373,7 @@ class RTS_Model:
 
 
     def correlate(self, model):
-        pass
+        return None
 
     
     def write(self, filename):
