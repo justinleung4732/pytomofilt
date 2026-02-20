@@ -164,7 +164,7 @@ def plot_shcoefs(coefs: np.ndarray,
     if r is None:
         ax.set_title(f'{title}', size=15)
     else:
-        ax.set_title(f'{title} at {r} km', size=15)
+        ax.set_title(f'{title} at {np.round(r,3)} km', size=15)
 
     return fig, ax, mappable
 
@@ -217,6 +217,6 @@ def plot_grid(lons: np.ndarray,
     if r is None:
         ax.set_title(f'{title}', size=15)
     else:
-        ax.set_title(f'{title} at {r} km', size=15)
+        ax.set_title(f'{title} at {np.round(r,3)} km', size=15)
 
     return fig, ax, mappable
