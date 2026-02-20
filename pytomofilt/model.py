@@ -14,7 +14,7 @@ _rmoho = 6346.691
 
 @dataclasses.dataclass
 class RealLayer:
-    depth: float
+    radius: float
     lats: list[float]
     lons: list[float]
     vals: list[float]
@@ -24,7 +24,7 @@ class RealLayer:
 class RealLayerModel:
     layers: list[RealLayer]
 
-    def plot_depth_slice(self,layer_no):
+    def plot_radial_slice(self,layer_no):
         """
         Calls the plotting.plot_grid function to plot velocity variations for one the layers.
 
@@ -37,19 +37,19 @@ class RealLayerModel:
         plotting.plot_grid(self.layers[layer_no].lons,
                            self.layers[layer_no].lats,
                            self.layers[layer_no].vals,
-                           self.layers[layer_no].depth,
-                           title='Depth slice')
+                           self.layers[layer_no].radius,
+                           title='Radial slice')
 
 
 def _default_radii(rmin=_rcmb, rmax=_rmoho):
     # Magic numbers from S20RTS model defs (and everything else)
-    KNOT_RADII = np.array([1.00000, 0.96512, 0.92675, 0.88454, 0.83810, 0.78701,
-                            0.73081, 0.66899, 0.60097, 0.52615, 0.44384, 0.35329,
-                            0.25367, 0.14409, 0.02353, -0.10909, -0.25499, -0.41550,
-                            -0.59207, -0.78631, -1.00000])
-    knots_r = (rmin - rmax) / 2.0 * KNOT_RADII + (rmin + rmax) / 2.0
+    KNOT_RADII = np.array([-1.00000, -0.78631, -0.59207, -0.41550, -0.25499, -0.10909,
+                            0.02353, 0.14409, 0.25367, 0.35329, 0.44384, 0.52615,
+                            0.60097, 0.66899, 0.73081, 0.78701, 0.83810, 0.88454,
+                            0.92675, 0.96512, 1.00000])
+    knots_r = (rmax - rmin) / 2.0 * KNOT_RADII + (rmin + rmax) / 2.0
     return knots_r
-    
+
 class RTS_Model:
 
     def __init__(self, lmax, rmin=_rcmb, rmax=_rmoho, knots=None):
@@ -216,13 +216,18 @@ class RTS_Model:
         """
 
         layers = []
-        depth = np.loadtxt(os.path.join(directory, 'depth_layers.dat'))
-        data_files = sorted([f for f in os.listdir(directory) if f.endswith('.dat') and f != 'depth_layers.dat'])
+        depth = np.loadtxt(os.path.join(directory, 'depth_layers.dat')) # list of increasing depth
+        radii = 6371 - depth[::-1]  # Change depth into list of radii (deepest to shallowest)
+
+        # Files are listed from shallowest to deepest, we need to reverse the order because we
+        # want to save layers from deepest to shallowest
+        data_files = sorted([f for f in os.listdir(directory) if f.endswith('.dat') and f != 'depth_layers.dat'],
+                            reverse=True)
         assert len(data_files) == len(depth), "Number of data files does not match number of depths"
 
         for i, filename in enumerate(data_files):
             data = np.loadtxt(os.path.join(directory, filename))
-            layers.append(RealLayer(depth[i], lons = data[:,0],
+            layers.append(RealLayer(radii[i], lons = data[:,0],
                                     lats = data[:,1], vals = data[:,2]))
         
         # Write to class
@@ -241,13 +246,13 @@ class RTS_Model:
         ----------
         layer_model : RealLayerModel class object
             A list of RealLayer objects, where each RealLayer object represents a list of values at a list
-            of longitude and latitude points at a certain depth.
+            of longitude and latitude points at a certain radii.
         """
         assert isinstance(layer_model, RealLayerModel), "layer model must be an instance of RealLayerModel"
         
         # Reparameterise file laterally
-        layer_depths = [l.depth for l in layer_model.layers]
-        sh_coefs = np.zeros((len(layer_depths),) + self.coefs.shape[1:])
+        layer_radii = [l.radius for l in layer_model.layers]
+        sh_coefs = np.zeros((len(layer_radii),) + self.coefs.shape[1:])
 
         for i, layer in enumerate(layer_model.layers):
             # SHExpandLSQ only works for real coefficients
@@ -258,7 +263,7 @@ class RTS_Model:
             sh_coefs[i] = sh.sh_to_rts(cilm)
 
         # Calculate coefficients at spline knots
-        self.coefs = spline.cubic_spline(sh_coefs, layer_depths,
+        self.coefs = spline.cubic_spline(sh_coefs, layer_radii,
                                          self.knot_splines)
 
 
@@ -393,7 +398,7 @@ class RTS_Model:
         f.close()
     
 
-    def plot_depth_slice(self, spline_point_np):
+    def plot_radial_slice(self, spline_point_np):
         """
         Calls the plotting.plot_shcoef function to plot velocity variations coefficients at one of
         the spline points.
@@ -406,7 +411,7 @@ class RTS_Model:
         """
         plotting.plot_shcoefs(self.coefs[spline_point_np],
                               r=self.knots_r[spline_point_np],
-                              title='Depth slice')
+                              title='Radial slice')
 
 
     def _write_sph_body_lines(self, fhandle):
