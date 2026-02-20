@@ -7,7 +7,7 @@ import pyshtools as shtools
 from . import spline
 from . import filter
 from . import sh_tools as sh
-
+from . import plotting
 
 _rcmb = 3480.0
 _rmoho = 6346.691
@@ -23,6 +23,23 @@ class RealLayer:
 @dataclasses.dataclass
 class RealLayerModel:
     layers: list[RealLayer]
+
+    def plot_depth_slice(self,layer_no):
+        """
+        Calls the plotting.plot_grid function to plot velocity variations for one the layers.
+
+        Parameters
+        ----------
+        layer_no : int
+            Layer number that is to be plotted.
+        
+        """
+        plotting.plot_grid(self.layers[layer_no].lons,
+                           self.layers[layer_no].lats,
+                           self.layers[layer_no].vals,
+                           self.layers[layer_no].depth,
+                           title='Depth slice')
+
 
 def _default_radii(rmin=_rcmb, rmax=_rmoho):
     # Magic numbers from S20RTS model defs (and everything else)
@@ -374,6 +391,22 @@ class RTS_Model:
         # Write the body
         self._write_sph_body_lines(f)
         f.close()
+    
+
+    def plot_depth_slice(self, spline_point_np):
+        """
+        Calls the plotting.plot_shcoef function to plot velocity variations coefficients at one of
+        the spline points.
+
+        Parameters
+        ----------
+        spline_point_np : int
+            Index of the spline point at which the coefficients will be plotted.
+        
+        """
+        plotting.plot_shcoefs(self.coefs[spline_point_np],
+                              r=self.knots_r[spline_point_np],
+                              title='Depth slice')
 
 
     def _write_sph_body_lines(self, fhandle):
