@@ -257,7 +257,7 @@ class RTS_Model:
         for i, layer in enumerate(layer_model.layers):
             # SHExpandLSQ only works for real coefficients
             cilm, chi2 = shtools.expand.SHExpandLSQ(layer.vals, layer.lats, layer.lons, 
-                                                    lmax = self.lmax, norm = 4, csphase = -1)
+                                                    lmax = self.lmax, norm = 4, csphase = 1)
 
             # Convert coefficients to RTS format
             sh_coefs[i] = sh.sh_to_rts(cilm)
