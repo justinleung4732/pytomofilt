@@ -14,7 +14,7 @@
     { name = "Andrew Walker"},
   ]
   license = { file = "LICENSE" }
-  requires-python = ">=3.9"
+  requires-python = ">=3.9, <=3.12"
   readme = "README.md"
   classifiers = [
     "License :: OSI Approved :: MIT License",
