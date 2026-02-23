@@ -31,7 +31,9 @@ def plot_shcoefs(coefs: np.ndarray,
     """
     Plot a set of spherical harmonic coefficients `coefs`. Label the radius with `r` (km)
     and the value with `quantity`.  Harmonics are truncated at degree `lmax`.
-
+    If `fig` and `ax` are supplied, then the plot is added to the provided matplotlib
+    figure and axis handles, respectively.
+    
     Parameters
     ----------
     coefs : np.ndarray
@@ -125,6 +127,8 @@ def plot_grid(lons: np.ndarray,
               ) -> Tuple[plt.Figure, plt.Axes, Any]:
     """
     Plot a grid of values defined at (lons, lats). 
+    If `fig` and `ax` are supplied, then the plot is added to the provided matplotlib
+    figure and axis handles, respectively.
 
     Parameters
     ----------
@@ -203,9 +207,8 @@ def _plot_contour_map(lons: np.ndarray,
                       labelsize: int = 15
                       ) -> Tuple[plt.Figure, plt.Axes, Any]:
     """
-    Plot a contour map from a gridded set of values, grid positions are given by lons and lats. 
-    If `fig` and `ax` are supplied, then the plot is added to the provided matplotlib
-    figure and axis handles, respectively.
+    Private function to plot contour map from a gridded set of values, grid positions 
+    are given by lons and lats. Called by plot_shcoefs and plot_grid.
     
     Parameters
     ----------
