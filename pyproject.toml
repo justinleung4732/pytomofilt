@@ -27,6 +27,7 @@
 
   [project.optional-dependencies]
     test = ["pytest", "pytest-cov"]
+    docs = ["sphinx==7.1.2", "sphinx-rtd-theme==1.3.0rc1"]
 
   [project.scripts]
   ptf_reparam_filter_files = "pytomofilt.cli:app"
