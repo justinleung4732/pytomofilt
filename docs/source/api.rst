@@ -10,13 +10,13 @@ Modules
 .. automodule:: pytomofilt
     :members:
 
-``pytomofilt.filter_models``
+``pytomofilt.cli``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: pytomofilt.cli
     :members:
 
-``pytomofilt.cli``
+``pytomofilt.filter_models``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: pytomofilt.filter_models
