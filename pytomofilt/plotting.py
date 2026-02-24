@@ -4,7 +4,7 @@ import cartopy.crs as ccrs
 from cartopy.util import add_cyclic_point
 import matplotlib.pyplot as plt
 import numpy as np
-import pyshtools
+import pyshtools as shtools
 from scipy.interpolate import griddata
 
 from . import sh_tools as sh
@@ -185,6 +185,46 @@ def plot_grid(lons: np.ndarray,
                                           figsize=figsize, labelsize=labelsize)
 
     return fig, ax, mappable
+
+
+def plot_spectrum(spectra: np.ndarray,
+                  yticks: list):
+
+    """
+    """
+    # Data from mod.RTS_Model stores layers from deepest to shallowest, need to
+    # reverse order as plt.imshow() plots from top to bottom.
+    _plot_power_plots(spectra[::-1], yticks, title = 'Spectra of filtered model')
+
+
+def plot_correlation(correlation: np.ndarray,
+                     yticks: list):
+    """
+    """
+    # Data from mod.RTS_Model stores layers from deepest to shallowest, need to
+    # reverse order as plt.imshow() plots from top to bottom.
+    _plot_power_plots(correlation[::-1], yticks, title = 'Correlation')
+
+
+def _plot_power_plots(image: np.ndarray,
+                      yticks: list,
+                      aspect_ratio: float = 0.005,
+                      title: str = '',
+                      figsize: Tuple[int, int] = (12, 12),
+                      fontsize: int = 12
+                      ):
+    """
+    Private function to plot 2D raster images. Called by plot_spectra and plot_correlation.
+    """
+    fig,ax = plt.subplots(figsize=figsize)
+    ax.imshow(image) 
+    ax.set_aspect(aspect_ratio)
+
+    ax.set_xticks(np.arange(image.shape[1]))
+    ax.set_yticks(np.arange(image.shape[0]),yticks)
+    ax.set_xlabel('Degree (l)', fontsize=fontsize)
+    ax.set_ylabel('Radius (km)', fontsize=fontsize)
+    ax.set_title(f'{title}')
 
 
 def _plot_contour_map(lons: np.ndarray,

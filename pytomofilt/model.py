@@ -374,8 +374,36 @@ class RTS_Model:
                         counter = counter + 1
 
 
-    def correlate(self, model):
-        return None
+    def spectrum(self, plot = False):
+        """
+        """
+        spectra = np.empty_like(self.knots_r)
+        for i, coef in enumerate(self.coefs):
+            sh_coef = sh.rts_to_sh(coef)
+            spectra[i] = shtools.spectralanalysis.spectrum(sh_coef, normalizatiron='ortho')
+
+        # Plot spectra
+        if plot:
+            plotting.plot_correlation(spectra, [str(np.round(k)) for k in self.knots_r[::-1]])
+
+
+    def correlate(self, model, plot = False):
+        """
+        """
+        assert isinstance(model, RTS_Model), "Correlation must be done with a model of instance RTS_Model"
+        assert np.all(model.knots_r, self.knots_r), ""
+        corr = np.empty((len(self.knots_r), self.lmax+1))
+
+        # loop through each layer, correlation assumes lower resolution of the two
+        for ri, coef in range(self.coefs):
+            sh_coef = sh.rts_to_sh(coef)
+            _,_,corr[ri] = shtools.spectralanalysis.SHAdmitCorr(sh_coef, model.coefs[ri])
+
+        # Plot correlation
+        if plot:
+            plotting.plot_correlation(corr, [str(np.round(k)) for k in self.knots_r[::-1]])
+
+        return corr
 
     
     def write(self, filename):
