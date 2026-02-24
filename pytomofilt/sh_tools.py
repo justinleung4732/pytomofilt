@@ -1,3 +1,6 @@
+from functools import partial
+from multiprocessing import Pool
+
 import numpy as np
 import pyshtools as shtools
 
@@ -17,15 +20,15 @@ def rts_to_sh(rts_coefs):
     lmax = inp_shape[1] - 1
     assert inp_shape[2] == lmax + 1, 'must have all ms'
 
-    coefs= shtools.SHCoeffs.from_zeros(lmax, kind='complex', 
+    coefs= shtools.SHCoeffs.from_zeros(lmax, kind='complex',
                                        normalization='ortho', csphase=-1)
 
-    # We don't need to set -m coeffs. minus sign for imaginary part 
+    # We don't need to set -m coeffs. minus sign for imaginary part
     # because real coefficients for sin store negative m degrees,
     # where sin(-m*phi) = -sin(m*phi)
     coefs.coeffs[0] = rts_coefs[0] - rts_coefs[1] * 1j
 
-    sh_coefs = coefs.convert(normalization='ortho', csphase=1, kind='real', 
+    sh_coefs = coefs.convert(normalization='ortho', csphase=1, kind='real',
                              check=False).to_array()
 
      # RTS format multiples non-zero order (m) components by 2
@@ -54,13 +57,13 @@ def sh_to_rts(sh_coefs):
                                              normalization='ortho', csphase=1)
     
     real_coefs.coeffs = sh_coefs
-    sh_coefs[1] = -sh_coefs[1]  # Minus sign for imaginary part because real coefficients for 
+    sh_coefs[1] = -sh_coefs[1]  # Minus sign for imaginary part because real coefficients for
                         # sin store negative m degrees, where sin(-m*phi) = -sin(m*phi)
 
-    complex_coefs = real_coefs.convert(normalization='ortho', csphase=-1, kind='complex', 
+    complex_coefs = real_coefs.convert(normalization='ortho', csphase=-1, kind='complex',
                               check=False).to_array()
 
-    # SHTOOLS stores the two arrays in axis 0 as positive m and negative m shells. We 
+    # SHTOOLS stores the two arrays in axis 0 as positive m and negative m shells. We
     # want to match the RTS format of storing real part in the first array and
     # imaginary aprt in the second array of axis 0
     real = complex_coefs[0].real
@@ -68,7 +71,34 @@ def sh_to_rts(sh_coefs):
 
     rts_coefs = np.array([real, imag])
 
-    # RTS format multiples non-zero order (m) components by 2 and 
+    # RTS format multiples non-zero order (m) components by 2
     rts_coefs[:,1:,1:] *= 2
 
     return rts_coefs
+
+
+def SH_conversion(layer_model, lmax):
+    """
+    """
+    _SH_conversion_partial = partial(_SH_conversion_inner, lmax=lmax)
+
+    all_params = zip([l.radius for l in layer_model.layers],
+                     [l.vals for l in layer_model.layers],
+                     [l.lats for l in layer_model.layers],
+                     [l.lons for l in layer_model.layers])
+
+    with Pool(processes=8) as pool:
+        result = pool.starmap_async(_SH_conversion_partial, all_params, chunksize=10)
+    
+    sh_coefs = result.get()
+    
+    return sh_coefs
+
+
+def _SH_conversion_inner(i, vals, lats, lons, lmax=40, norm=4, csphase=1):
+    
+    print('i')
+    coefs, _ = shtools.expand.SHExpandLSQ(vals, lats, lons, lmax=lmax, norm=norm, csphase=csphase)
+    sh_coef = sh_to_rts(coefs)
+
+    return sh_coef

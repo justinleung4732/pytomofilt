@@ -2,7 +2,6 @@ import dataclasses
 import os
 
 import numpy as np
-import pyshtools as shtools
 
 from . import spline
 from . import filter
@@ -253,14 +252,9 @@ class RTS_Model:
         # Reparameterise file laterally
         layer_radii = [l.radius for l in layer_model.layers]
         sh_coefs = np.zeros((len(layer_radii),) + self.coefs.shape[1:])
-
-        for i, layer in enumerate(layer_model.layers):
-            # SHExpandLSQ only works for real coefficients
-            cilm, chi2 = shtools.expand.SHExpandLSQ(layer.vals, layer.lats, layer.lons, 
-                                                    lmax = self.lmax, norm = 4, csphase = 1)
-
-            # Convert coefficients to RTS format
-            sh_coefs[i] = sh.sh_to_rts(cilm)
+    
+        # SH conversion (parallelised)
+        sh_coefs = sh.SH_conversion(layer_model, self.lmax)
 
         # Calculate coefficients at spline knots
         self.coefs = spline.cubic_spline(sh_coefs, layer_radii,
