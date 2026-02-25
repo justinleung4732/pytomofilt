@@ -8,3 +8,12 @@ __pycache__
 
 # VS code stuff
 .vscode
+
+# scratch files
+scratch
+
+# output files
+output
+
+# notebook checkpoints
+**/.ipynb_checkpoints/
