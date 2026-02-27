@@ -23,6 +23,53 @@ class RealLayer:
 class RealLayerModel:
     layers: list[RealLayer]
 
+    @classmethod
+    def from_directory(cls, directory):
+        """
+        Inputs values from files stored in a directory, and automatically reparameterises the data (see 
+        reparam for more information). Coefficients are saved under the coefs attribute of this class.
+        
+        There should be a "depth_layers.dat" file that contains the list of depth layers. Each data file 
+        should have an '.dat' extension, numbered in increasing order of depth. The data files be 
+        organised into 3 columns, where the columns from left to right are longitude, latitude and the 
+        value at the (lon, lat) point respectively (see below):
+
+        Parameters
+        ----------
+        directory : str
+            The directory that contains the files to be read.
+            
+        File format example
+        ----------
+        0.0 90.0 10.0
+        0.0 0.0 20.0
+        90.0 0.0 20.0
+        180.0 0.0 20.0
+        270.0 0.0 20.0
+        0.0 -90.0 10.0
+        
+        """
+
+        layers = []
+        depth = np.loadtxt(os.path.join(directory, 'depth_layers.dat')) # list of increasing depth
+        radii = 6371 - depth[::-1]  # Change depth into list of radii (deepest to shallowest)
+
+        # Files are listed from shallowest to deepest, we need to reverse the order because we
+        # want to save layers from deepest to shallowest
+        data_files = sorted([f for f in os.listdir(directory) if f.endswith('.dat') and f != 'depth_layers.dat'],
+                            reverse=True)
+        assert len(data_files) == len(depth), "Number of data files does not match number of depths"
+
+        for i, filename in enumerate(data_files):
+            data = np.loadtxt(os.path.join(directory, filename))
+            layers.append(RealLayer(radii[i], lons = data[:,0],
+                                    lats = data[:,1], vals = data[:,2]))
+        
+        # Write to class
+        rlm = cls(layers)
+        return rlm
+    
+
     def plot_radial_slice(self,layer_no):
         """
         Calls the plotting.plot_grid function to plot velocity variations for one the layers.
@@ -152,7 +199,7 @@ class RTS_Model:
 
                 if li > lmax:
                     # We have read all the coefficients for this radial
-                    # layer. Reset L and increment R. 
+                    # layer. Reset L and increment R.
                     li = 0
                     ri = ri + 1
                 dataline = [] # Start adding to a new set of coefficients
@@ -214,28 +261,18 @@ class RTS_Model:
         
         """
 
-        layers = []
+        # Create radii array
         depth = np.loadtxt(os.path.join(directory, 'depth_layers.dat')) # list of increasing depth
         radii = 6371 - depth[::-1]  # Change depth into list of radii (deepest to shallowest)
-
-        # Files are listed from shallowest to deepest, we need to reverse the order because we
-        # want to save layers from deepest to shallowest
-        data_files = sorted([f for f in os.listdir(directory) if f.endswith('.dat') and f != 'depth_layers.dat'],
-                            reverse=True)
-        assert len(data_files) == len(depth), "Number of data files does not match number of depths"
-
-        for i, filename in enumerate(data_files):
-            data = np.loadtxt(os.path.join(directory, filename))
-            layers.append(RealLayer(radii[i], lons = data[:,0],
-                                    lats = data[:,1], vals = data[:,2]))
         
         # Write to class
         RTS = cls(lmax, rmin, rmax, knots)
-        RTS.reparam(RealLayerModel(layers))
+        RTS.reparam(directory, radii)
+
         return RTS
     
 
-    def reparam(self, layer_model):
+    def reparam(self, directory, layer_radii):
         """
         Reparameterises the model laterally into spherical harmonics and vertically in a three-point clamped
         cubic spline functions. The output is the coefficients evaluated at the spline knots, and is saved
@@ -243,18 +280,15 @@ class RTS_Model:
         
         Parameters
         ----------
-        layer_model : RealLayerModel class object
-            A list of RealLayer objects, where each RealLayer object represents a list of values at a list
-            of longitude and latitude points at a certain radii.
+        directory : str
+            The directory that contains the files to be read.
         """
-        assert isinstance(layer_model, RealLayerModel), "layer model must be an instance of RealLayerModel"
-        
-        # Reparameterise file laterally
-        layer_radii = [l.radius for l in layer_model.layers]
-        sh_coefs = np.zeros((len(layer_radii),) + self.coefs.shape[1:])
-    
-        # SH conversion (parallelised)
-        sh_coefs = sh.SH_conversion(layer_model, self.lmax)
+        filenames = sorted([f for f in os.listdir(directory) if f.endswith('.dat') and f != 'depth_layers.dat'],
+                    reverse=True)
+        assert len(filenames) == len(layer_radii), "Number of data files does not match number of depths"
+
+        # Reparameterise file laterally (parallelised SH conversion)
+        sh_coefs = sh.sh_expand(directory, filenames, self.lmax)
 
         # Calculate coefficients at spline knots
         self.coefs = spline.cubic_spline(sh_coefs, layer_radii,
