@@ -1,5 +1,6 @@
 import dataclasses
 import os
+# from typing import Optional, Tuple, Any
 
 import numpy as np
 import pyshtools as shtools
@@ -14,6 +15,18 @@ _rmoho = 6346.691
 
 @dataclasses.dataclass
 class RealLayer:
+    """
+    A grid of values at specific lat/lon points in a layer of a specific radii. Reads in 
+    
+    Attributes
+    ----------
+    radius : float
+        Radius (km) to display in title.
+    lons, lats : array-like
+        1D arrays of point coordinates (degrees).
+    vals : array-like
+        Values corresponding to the coordinates.
+    """
     radius: float
     lats: list[float]
     lons: list[float]
@@ -22,6 +35,14 @@ class RealLayer:
 
 @dataclasses.dataclass
 class RealLayerModel:
+    """
+    A collection of grid/layers (RealLayer objects) at different radii.
+    
+    Attributes
+    ----------
+    layers : list[RealLayer]
+        A list of RealLayer objects
+    """
     layers: list[RealLayer]
 
     def plot_radial_slice(self,layer_no):
@@ -50,8 +71,13 @@ def _default_radii(rmin=_rcmb, rmax=_rmoho):
     knots_r = (rmax - rmin) / 2.0 * KNOT_RADII + (rmin + rmax) / 2.0
     return knots_r
 
-class RTS_Model:
-
+class RTS_Model(object):
+    """
+    A class for managing RTS parameterized tomographic models.
+    This class handles spherical harmonic coefficients parameterized radially using cubic spline
+    basis functions. It supports reading/writing model files, reparameterisation of data, and
+    application of resolution filters from seismic inversions.
+    """
     def __init__(self, lmax, rmin=_rcmb, rmax=_rmoho, knots=None):
         """
         Create an instance of the RTS model object
@@ -305,7 +331,7 @@ class RTS_Model:
         
         Returns
         -------
-        filtered_model: RTS_Model class object
+        output_model: RTS_Model class object
             a copy of model, having been filtered using the
             resolution operator. This is the same resolution of the model
             containing the filter.
@@ -451,3 +477,138 @@ class RTS_Model:
                 if items != 0:
                     line = line + "\n"
                 fhandle.write(line)
+
+
+class RTS_SP_Model(object):
+    """
+    A spherical shell for tomograpic joint models.
+
+    This is designed to wrap RTS Model for models like SP12RTS
+    where the S and P wave velocity are fit together. It allows
+    "tomographic filtering" where the resolution operator has
+    cross terms mapping between the two velocoties.
+    """
+
+    def __init__(self, lmax, rmin=_rcmb, rmax=_rmoho, knots=None):
+        """
+        Create an instance of the RTS SP model object.
+
+        Parameters
+        ----------
+        lmax: int
+            The maximum spherical harmonic degree parameterised in this
+            model. 
+        rmin: float
+            The minimum radii of the RTS_model. If not specified, this
+            defaults to the radius of the CMB.
+        rmax: float
+            The maximum radii of the RTS_model. If not specified, this
+            defaults to the radius of the Moho.
+        knots: array_like (n)
+            The list of n radii points to calculate the model coefficients.
+            If None, default knot radii from the RTS models are used, which
+            are scaled to the maximum as rmax and minimum as rmin.
+        """
+        self.s_model = RTS_Model(lmax, rmin, rmax, knots)
+        self.p_model = RTS_Model(lmax, rmin, rmax, knots)
+
+
+    def from_files(self, s_filename, p_filename, rmin=_rcmb, rmax=_rmoho, knots=None):
+        """
+        A wrapper for the from_file method in the RTS_Model class. 
+
+        Parameters
+        ----------
+        s_filename : str
+            Filename of the S-wave velocities .sph file to be read.
+        p_filename : str
+            Filename of the P-wave velocities .sph file to be read.
+        rmin: float
+            The minimum radii of the RTS_model. If not specified, this
+            defaults to the radius of the CMB.
+        rmax: float
+            The maximum radii of the RTS_model. If not specified, this
+            defaults to the radius of the Moho.
+        knots: array_like (n)
+            The list of n radii points to calculate the model coefficients.
+            If None, default knot radii from the RTS models are used, which
+            are scaled to the maximum as rmax and minimum as rmin.
+        """
+        self.s_model = RTS_Model.from_file(s_filename, rmin, rmax, knots)
+        self.p_model = RTS_Model.from_file(p_filename, rmin, rmax, knots)
+
+
+    def write(self, s_filename, p_filename):
+        """_summary_
+        Writes the coefficients of the model into two separate .sph files.
+
+        Parameters
+        ----------
+        filename : str
+            Filename of the .sph file to be saved.
+        
+        """
+        self.s_model.write(s_filename)
+        self.p_model.write(p_filename)
+
+
+    def filter_from_file(self, evec_file, wght_file, damping, verbose=False):
+        """
+        Adds a resolution operator (filter) from Fortran formatted files
+        
+        Parameters
+        ----------
+        evec_file: file name of the Fortran unformatted file containing the
+                   eigenvectors (and values) used to build the resolution
+                   operator.
+        wght_file: file name of the Fortran unformatted file containing the
+                   weights.
+        damping: damping parameter used in the inversion.
+        verbose: optional, adds extra output for all filter operations
+        Setting the optional verbose argument to True results in the more
+        output being created. This is useful for debugging and comparing the
+        run to the Fortran equivalent
+        """
+        self.filter_obj = filter.Filter(evec_file, wght_file, damping, verbose)
+
+
+    def filter(self, s_model, p_model):
+        """
+        Apply this model's resolution filter to another model instance
+        
+        Both models must be parameterized the same way (i.e. spherical 
+        harmonics at the knots of cubic splines). Typically the model
+        with a resolution operator will be from a tomographic inversion
+        and the model to be operated on (the argument to this method)
+        will be from some other high resolution source - e.g. a geodynamic
+        simulation. Note that the filter must be loaded before calling this
+        method.
+        
+        Parameters
+        ----------
+        s_model: another instance of the RTS_Model class
+        p_model: another instance of the RTS_Model class
+        
+        Returns
+        -------
+        output_s_model: RTS_Model class object
+            a copy of s_model, having been filtered using the
+            resolution operator. This is the same resolution of the model
+            containing the filter.
+        output_p_model: RTS_Model class object
+            same as output_s_model, but a filtered copy of p_model.
+        """
+        assert self.filter_obj is not None, "You must use filter_from_file() to add the filter"
+        assert isinstance(s_model, RTS_Model), "Input S model must be an instance of RTS_Model to be filtered" 
+        assert isinstance(p_model, RTS_Model), "Input P model must be an instance of RTS_Model to be filtered" 
+        x_s = s_model.as_vector()
+        x_p = p_model.as_vector()
+        x = np.concatenate((x_s, x_p))
+        x = self.filter_obj.apply_filter(x)
+        output_s_model = RTS_Model(self.s_model.lmax, self.s_model.rmin, self.s_model.rmax,
+                                   self.s_model.knots_r)
+        output_p_model = RTS_Model(self.p_model.lmax, self.p_model.rmin, self.p_model.rmax,
+                                   self.p_model.knots_r)
+        output_s_model.from_vector(x[:len(x_s)])
+        output_p_model.from_vector(x[len(x_s):])
+        return output_s_model, output_p_model

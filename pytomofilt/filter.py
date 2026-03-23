@@ -202,7 +202,7 @@ class Filter(object):
         assert x.size >= self.eigvals.size, \
             "Model size / filter mismatch (eval)"
         assert x.size == self.eigvecs[0,:].size, \
-            "Model size / filter mismatch (eec)"
+            "Model size / filter mismatch (evec)"
         x_out = apply_filter_inner(x, self.eigvals, self.eigvecs, self.twts, self.damp)
                 
         if self.ismth == 1:
