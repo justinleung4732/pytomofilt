@@ -8,14 +8,15 @@ from typing_extensions import Annotated
 import cartopy.crs as ccrs
 import pyshtools as shtools
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 import numpy as np
 import typer
 
-from . filter_models import tomographic_model_from_path
+from .filter_models import tomographic_model_from_path
 from . import model
 from . import sh_tools as sh
 from . import spline
-from . plotting import plot_shcoefs
+from .plotting import plot_shcoefs
 
 
 _rcmb = 3480.0
@@ -114,7 +115,6 @@ def resolution_test_bg_spike(
     # Build tomographic model reference
     tomographic_model_spec = tomographic_model_from_path(tomographic_model)
     ref_model = model.RTS_Model.from_file(tomographic_model_spec.coef_file)
-    print(f"Setting up filter model for {tomographic_model_spec.name}.")
     ref_model.filter_from_file(tomographic_model_spec.evec_file, tomographic_model_spec.weights_file,
                                 0.2,verbose=True)
     lmax = ref_model.lmax
@@ -135,19 +135,65 @@ def resolution_test_bg_spike(
     print("Filtering!")
     filtered_bg_spike_model = ref_model.filter(bg_spike_model)
 
-    fig, ax = plt.subplots(1,3, figsize=(20,8), subplot_kw=dict(projection=ccrs.Robinson()))
-    # Calculate common colorscale limits
-    data1 = ylm
-    data2 = np.einsum('i,ijkl->jkl', knot_splines(r), spline_coefs)
-    data3 = np.einsum('i,ijkl->jkl', knot_splines(r), filtered_bg_spike_model.coefs)
+    # Plotting
+    print("Plotting!")
+    fig = plt.figure(figsize=(15,15))
+    gs = gridspec.GridSpec(3, 2, width_ratios=[3, 1], hspace=0.3, wspace=0.3)
     
-    #FIXME: colorbars not consistent across the three plots, need to calculate common limits
-    plot_shcoefs(data1,
+    ax = []
+    for i in range(3):
+        ax.append(fig.add_subplot(gs[i, 0], projection=ccrs.Robinson()))
+    
+    # Rectilinear plot spanning the right column (all rows)
+    ax_rect = fig.add_subplot(gs[:, 1])
+
+    data1 = ylm
+    data2 = spline.evaluate_coefs_at_r(r, knot_splines, spline_coefs)
+    data3 = spline.evaluate_coefs_at_r(r, knot_splines, filtered_bg_spike_model.coefs)
+
+    # Plot the spherical harmonic coefficients of the input delta function, the reparameterised
+    # delta function, and the final filtered delta function
+    _,_,h = plot_shcoefs(data1,
                  fig=fig, ax=ax[0],
-                 title="Input delta function in spherical harmonics")
+                 cmap = 'Greys',
+                 title="Input delta function in SH")
     plot_shcoefs(data2,
                  fig=fig, ax=ax[1],
-                 title="Reparameterised delta function")
+                 cmap = 'Greys',
+                 title="Reparameterised delta function",
+                 levels = h.levels) # use same levels as data1 for comparison
     plot_shcoefs(data3,
                  fig=fig, ax=ax[2],
-                 title="Final filtered delta function")
+                 cmap = 'Greys',
+                 title="Final filtered delta function",
+                 levels = h.levels) # use same levels as data1 for comparison
+
+    # Plot radial profile of the spike before and after filtering
+    r_eval = np.linspace(_rcmb+1, _rmoho-1, 100)
+    
+    # Calculate value at spike lat,lon for each depth
+    coefs_pre_filter = spline.evaluate_coefs_at_r(r_eval, knot_splines, spline_coefs)
+    coefs_post_filter = spline.evaluate_coefs_at_r(r_eval, knot_splines, filtered_bg_spike_model.coefs)
+    spike_pre_filter = np.zeros_like(r_eval)
+    spike_post_filter = np.zeros_like(r_eval)
+    for i,(pre,post) in enumerate(zip(coefs_pre_filter, coefs_post_filter)):
+        pre = sh.rts_to_sh(pre)
+        post = sh.rts_to_sh(post)
+        spike_pre_filter[i] = shtools.expand.MakeGridPoint(pre,xlat,xlon,norm=4)
+        spike_post_filter[i] = shtools.expand.MakeGridPoint(post,xlat,xlon,norm=4)
+    
+    # Plot the spike value as a function of depth before and after filtering
+    ax_rect.plot(spike_pre_filter, r_eval, c='k', label="Pre-filter")
+    ax_rect.plot(spike_post_filter, r_eval, c='r', label="Post-filter")
+    ax_rect.set_title("Spike value at location as a function of depth")
+    ax_rect.set_xlabel("Spike value")
+    ax_rect.set_ylabel("Radius (km)")
+    ax_rect.invert_yaxis()
+    ax_rect.legend()
+
+    plt.show()
+
+
+if __name__ == "__main__":
+    resolution_test_bg_spike(xlat=0, xlon=0, r=4371,
+                             tomographic_model=Path("/Users/justinleung/code/pytomofilt/data/S12RTS"))
