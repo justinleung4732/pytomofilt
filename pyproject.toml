@@ -47,6 +47,8 @@ include = ["pytomofilt*"]
 
   [project.scripts]
   ptf_reparam_filter_files = "pytomofilt.cli:app"
+  ptf_calc_spectra = "pytomofilt.cli:app3"
+  ptf_correlate = "pytomofilt.cli:app4"
 
 [tool.pytest.ini_options]
 pythonpath= [
