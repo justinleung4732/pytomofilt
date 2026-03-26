@@ -116,7 +116,7 @@ def resolution_test_bg_spike(
     tomographic_model_spec = tomographic_model_from_path(tomographic_model)
     ref_model = model.RTS_Model.from_file(tomographic_model_spec.coef_file)
     ref_model.filter_from_file(tomographic_model_spec.evec_file, tomographic_model_spec.weights_file,
-                                0.2,verbose=True)
+                                0.001,verbose=True)
     lmax = ref_model.lmax
 
     # Create a delta function at the given location in spherical harmonics up to degree lmax.
@@ -138,7 +138,7 @@ def resolution_test_bg_spike(
     # Plotting
     print("Plotting!")
     fig = plt.figure(figsize=(15,15))
-    gs = gridspec.GridSpec(3, 2, width_ratios=[3, 1], hspace=0.3, wspace=0.3)
+    gs = gridspec.GridSpec(3, 2, width_ratios=[3,1], hspace=0.3, wspace=0.6)
     
     ax = []
     for i in range(3):
@@ -155,16 +155,16 @@ def resolution_test_bg_spike(
     # delta function, and the final filtered delta function
     _,_,h = plot_shcoefs(data1,
                  fig=fig, ax=ax[0],
-                 cmap = 'Greys',
+                 cmap = 'Reds',
                  title="Input delta function in SH")
     plot_shcoefs(data2,
                  fig=fig, ax=ax[1],
-                 cmap = 'Greys',
+                 cmap = 'Reds',
                  title="Reparameterised delta function",
                  levels = h.levels) # use same levels as data1 for comparison
     plot_shcoefs(data3,
                  fig=fig, ax=ax[2],
-                 cmap = 'Greys',
+                 cmap = 'Reds',
                  title="Final filtered delta function",
                  levels = h.levels) # use same levels as data1 for comparison
 
@@ -188,12 +188,11 @@ def resolution_test_bg_spike(
     ax_rect.set_title("Spike value at location as a function of depth")
     ax_rect.set_xlabel("Spike value")
     ax_rect.set_ylabel("Radius (km)")
-    ax_rect.invert_yaxis()
     ax_rect.legend()
 
     plt.show()
 
 
 if __name__ == "__main__":
-    resolution_test_bg_spike(xlat=0, xlon=0, r=4371,
+    resolution_test_bg_spike(r=4371, xlat=0, xlon=0,
                              tomographic_model=Path("/Users/justinleung/code/pytomofilt/data/S12RTS"))
