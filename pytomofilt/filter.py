@@ -4,7 +4,9 @@ import numpy as np
 import scipy.io as spio
 import numba
 
-class Filter(object):
+from .templates import AbstractFilter
+
+class RTS_Filter(AbstractFilter):
     """
     Object to apply tomographic resolution operator to seismic model
 

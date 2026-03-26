@@ -9,6 +9,7 @@ from . import spline
 from . import filter
 from . import sh_tools as sh
 from . import plotting
+from .templates import AbstractModel
 
 _rcmb = 3480.0
 _rmoho = 6346.691
@@ -71,7 +72,7 @@ def _default_radii(rmin=_rcmb, rmax=_rmoho):
     knots_r = (rmax - rmin) / 2.0 * KNOT_RADII + (rmin + rmax) / 2.0
     return knots_r
 
-class RTS_Model(object):
+class RTS_Model(AbstractModel):
     """
     A class for managing RTS parameterized tomographic models.
     This class handles spherical harmonic coefficients parameterized radially using cubic spline
@@ -310,7 +311,7 @@ class RTS_Model(object):
         output being created. This is useful for debugging and comparing the
         run to the Fortran equivalent
         """
-        self.filter_obj = filter.Filter(evec_file, wght_file, damping, verbose)
+        self.filter_obj = filter.RTS_Filter(evec_file, wght_file, damping, verbose)
 
 
     def filter(self, model):
@@ -479,7 +480,7 @@ class RTS_Model(object):
                 fhandle.write(line)
 
 
-class RTS_SP_Model(object):
+class RTS_SP_Model(AbstractModel):
     """
     A spherical shell for tomograpic joint models.
 
@@ -513,7 +514,7 @@ class RTS_SP_Model(object):
         self.p_model = RTS_Model(lmax, rmin, rmax, knots)
 
 
-    def from_files(self, s_filename, p_filename, rmin=_rcmb, rmax=_rmoho, knots=None):
+    def from_file(self, s_filename, p_filename, rmin=_rcmb, rmax=_rmoho, knots=None):
         """
         A wrapper for the from_file method in the RTS_Model class. 
 
