@@ -77,7 +77,7 @@ def plot_shcoefs(coefs: np.ndarray,
     # small regularization to avoid contour artifacts (preserves original behavior)
     coefs = coefs + 1e-15
 
-    # Convert to pyshtools-compatible SH array
+    # Convert to shtools-compatible SH array
     sh_coefs = sh.rts_to_sh(coefs)
 
     # Build grid (MakeGrid2D expects the SH array, spacing and extents)
@@ -87,7 +87,7 @@ def plot_shcoefs(coefs: np.ndarray,
     west = 0
     east = 360
     
-    grid = pyshtools.expand.MakeGrid2D(
+    grid = shtools.expand.MakeGrid2D(
         sh_coefs, interval, lmax, norm=4,
         north=north, south=south, east=east, west=west
     )
@@ -187,35 +187,34 @@ def plot_grid(lons: np.ndarray,
     return fig, ax, mappable
 
 
-def plot_spectrum(spectra: np.ndarray,
-                  yticks: list):
+def plot_heatmap(image: np.ndarray,
+                 yticks: list,
+                 aspect_ratio: float = 0.005,
+                 title: str = '',
+                 figsize: Tuple[int, int] = (12, 12),
+                 fontsize: int = 12
+                 ):
+    """
+    Plot a 2D raster image, used for plotting the correlation or spectra of models in spherical
+    harmonics. The x-axis represents the spherical harmonic degree (l) and the y-axis represents
+    radius (km). The image and yticks should be ordered in layers from shallowest to deepest. 
+    
+    Parameters
+    ----------
+    image : np.ndarray
+        2D array representing the raster image to be displayed.
+    yticks: list (n_layers,)
+        A list of labels for the y-axis ticks corresponding to each layer.
+    aspect_ratio : float, optional
+        Aspect ratio for the image display. Default is 0.005.
+    title : str, optional
+        Title for the heatmap plot. Default is an empty string.
+    figsize : Tuple[int, int], optional
+        Figure size as (width, height) in inches. Default is (12, 12).
+    fontsize : int, optional
+        Font size for axis labels and title. Default is 12.
+    """
 
-    """
-    """
-    # Data from mod.RTS_Model stores layers from deepest to shallowest, need to
-    # reverse order as plt.imshow() plots from top to bottom.
-    _plot_power_plots(spectra[::-1], yticks, title = 'Spectra of filtered model')
-
-
-def plot_correlation(correlation: np.ndarray,
-                     yticks: list):
-    """
-    """
-    # Data from mod.RTS_Model stores layers from deepest to shallowest, need to
-    # reverse order as plt.imshow() plots from top to bottom.
-    _plot_power_plots(correlation[::-1], yticks, title = 'Correlation')
-
-
-def _plot_power_plots(image: np.ndarray,
-                      yticks: list,
-                      aspect_ratio: float = 0.005,
-                      title: str = '',
-                      figsize: Tuple[int, int] = (12, 12),
-                      fontsize: int = 12
-                      ):
-    """
-    Private function to plot 2D raster images. Called by plot_spectra and plot_correlation.
-    """
     fig,ax = plt.subplots(figsize=figsize)
     ax.imshow(image) 
     ax.set_aspect(aspect_ratio)
