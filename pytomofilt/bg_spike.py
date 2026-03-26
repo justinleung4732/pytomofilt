@@ -34,7 +34,8 @@ def _default_radii(rmin=_rcmb, rmax=_rmoho):
 
 def create_lateral_delta_function(xlat, xlon, lmax):
     """
-    Create a delta function at the given location (xlat, xlon) and expand it in spherical harmonics up to degree lmax.
+    Create a delta function at the given location (xlat, xlon) and expand it in spherical harmonics
+    up to degree lmax.
 
     Parameters
     ----------
@@ -51,7 +52,7 @@ def create_lateral_delta_function(xlat, xlon, lmax):
         Real-valued spherical harmonic coefficients of the delta function,
         with shape (lmax+1, lmax+1) in orthonormal normalization.
     """
-    theta = (90 - xlat)
+    theta = 90 - xlat
     ylm = shtools.expand.spharm(lmax,theta,xlon, normalization='ortho', kind='real')
     return ylm
 
@@ -73,16 +74,16 @@ def create_radial_delta_function(r0, knots):
         Coefficients c_i = B_i(r0) for each basis spline i.
     """
     # Ensure r0 is in range
-    if not (min(knots) <= r0 <= max(knots)):
+    if not min(knots) <= r0 <= max(knots):
         raise ValueError("r0 must be within the knot range.")
-    
+
     # Get the spline basis (as in calculate_splines)
     splines = spline.calculate_splines(knots)
-    
+
     # Evaluate all basis functions at r0
     # splines(x0) returns shape (n_knots,) since y was identity
     coefs = splines(r0)  # c_i = B_i(r0)
-    
+
     return coefs, splines
 
 
@@ -115,8 +116,9 @@ def resolution_test_bg_spike(
     # Build tomographic model reference
     tomographic_model_spec = tomographic_model_from_path(tomographic_model)
     ref_model = model.RTS_Model.from_file(tomographic_model_spec.coef_file)
-    ref_model.filter_from_file(tomographic_model_spec.evec_file, tomographic_model_spec.weights_file,
-                                0.001,verbose=True)
+    ref_model.filter_from_file(tomographic_model_spec.evec_file, 
+                               tomographic_model_spec.weights_file,
+                                0.0,verbose=True)
     lmax = ref_model.lmax
 
     # Create a delta function at the given location in spherical harmonics up to degree lmax.
@@ -139,11 +141,11 @@ def resolution_test_bg_spike(
     print("Plotting!")
     fig = plt.figure(figsize=(15,15))
     gs = gridspec.GridSpec(3, 2, width_ratios=[3,1], hspace=0.3, wspace=0.6)
-    
+
     ax = []
     for i in range(3):
         ax.append(fig.add_subplot(gs[i, 0], projection=ccrs.Robinson()))
-    
+
     # Rectilinear plot spanning the right column (all rows)
     ax_rect = fig.add_subplot(gs[:, 1])
 
@@ -170,10 +172,10 @@ def resolution_test_bg_spike(
 
     # Plot radial profile of the spike before and after filtering
     r_eval = np.linspace(_rcmb+1, _rmoho-1, 100)
-    
+
     # Calculate value at spike lat,lon for each depth
     coefs_pre_filter = spline.evaluate_coefs_at_r(r_eval, knot_splines, spline_coefs)
-    coefs_post_filter = spline.evaluate_coefs_at_r(r_eval, knot_splines, filtered_bg_spike_model.coefs)
+    coefs_post_filter = spline.evaluate_coefs_at_r(r_eval, knot_splines,filtered_bg_spike_model.coefs)
     spike_pre_filter = np.zeros_like(r_eval)
     spike_post_filter = np.zeros_like(r_eval)
     for i,(pre,post) in enumerate(zip(coefs_pre_filter, coefs_post_filter)):
@@ -181,18 +183,20 @@ def resolution_test_bg_spike(
         post = sh.rts_to_sh(post)
         spike_pre_filter[i] = shtools.expand.MakeGridPoint(pre,xlat,xlon,norm=4)
         spike_post_filter[i] = shtools.expand.MakeGridPoint(post,xlat,xlon,norm=4)
-    
+
     # Plot the spike value as a function of depth before and after filtering
-    ax_rect.plot(spike_pre_filter, r_eval, c='k', label="Pre-filter")
-    ax_rect.plot(spike_post_filter, r_eval, c='r', label="Post-filter")
-    ax_rect.set_title("Spike value at location as a function of depth")
+    ax_rect.plot(spike_pre_filter, 6371-r_eval, c='k', label="Pre-filter")
+    ax_rect.plot(spike_post_filter, 6371-r_eval, c='r', label="Post-filter")
+    ax_rect.set_title("Radial delta function")
     ax_rect.set_xlabel("Spike value")
-    ax_rect.set_ylabel("Radius (km)")
+    ax_rect.set_ylabel("Depth (km)")
+    ax_rect.set_ylim([2890,0])
     ax_rect.legend()
+    ax_rect.grid()
 
     plt.show()
 
 
 if __name__ == "__main__":
-    resolution_test_bg_spike(r=4371, xlat=0, xlon=0,
-                             tomographic_model=Path("/Users/justinleung/code/pytomofilt/data/S12RTS"))
+    resolution_test_bg_spike(r=5296, xlat=0, xlon=0,
+                        tomographic_model=Path("/Users/justinleung/Library/Caches/pytomofilt/S20RTS"))
