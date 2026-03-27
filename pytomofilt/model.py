@@ -83,8 +83,10 @@ class RTS_Model:
         # Build splines
         self.knot_splines = spline.calculate_splines(self.knots_r)
         self.filter_obj = None
+        # storage for geodynamic model specs (e.g. grid points)
+        self.geody_specs = {'radii' : None, 'lats' : None, 'lons' : None}
         # storage for model - radius, real/imag, degree, order:
-        self.coefs = np.zeros((len(self.knots_r), 2, lmax+1, lmax+1))    
+        self.coefs = np.zeros((len(self.knots_r), 2, lmax+1, lmax+1))
 
 
     @classmethod
@@ -114,16 +116,16 @@ class RTS_Model:
         header = next(f).split()
         lmax = int(header[0])
         if knots is None:
-            knots = _default_radii(rmin=rmin, rmax=rmax)    
-        coefs = np.zeros((len(knots), 2, lmax+1, lmax+1))    
+            knots = _default_radii(rmin=rmin, rmax=rmax)
+        coefs = np.zeros((len(knots), 2, lmax+1, lmax+1))
 
-        # The format of the rest of the file is a little bit odd. Coefficients 
+        # The format of the rest of the file is a little bit odd. Coefficients
         # for each radius are listed in blocks and within these blocks coefficients
         # for each l are listed in rows. However, the maximum number of coefficients
         # all of the coefficients for a r,l combination. Things could go wrong if we
         # per line is 11, so for l > 6 we have to read multiple lines before we have
         # end up with too many coefficients for the r,l combination we expect and we
-        # trap that at the end of the loop. Otherwise the file could be too short, 
+        # trap that at the end of the loop. Otherwise the file could be too short,
         # in which case we won't have incremented ri enough.
         dataline = []
         ri = 0
@@ -229,9 +231,10 @@ class RTS_Model:
             data = np.loadtxt(os.path.join(directory, filename))
             layers.append(RealLayer(radii[i], lons = data[:,0],
                                     lats = data[:,1], vals = data[:,2]))
-        
+
         # Write to class
         RTS = cls(lmax, rmin, rmax, knots)
+        RTS.geody_specs['radii'] = radii
         RTS.reparam(RealLayerModel(layers))
         return RTS
     
@@ -348,7 +351,7 @@ class RTS_Model:
                         vector[counter] = self.coefs[ri,1,li,mi]
                         counter = counter + 1
 
-        assert counter == lenatd, "missing vals" 
+        assert counter == lenatd, "missing vals"
         return vector
     
 
@@ -385,7 +388,7 @@ class RTS_Model:
         Parameters
         ----------
         filename : str
-            Filename of the .sph file to be saved.
+            Filename of the .sph file to be saved. Should end with .sph.
         
         """
         f = open(filename, 'w')
@@ -451,3 +454,29 @@ class RTS_Model:
                 if items != 0:
                     line = line + "\n"
                 fhandle.write(line)
+
+
+    def convert_to_grid_format(self, filename):
+        """
+        Convert the model coefficients to grid format and save as a .dat file. The grid format is a
+        list of longitude, latitude and value at the (lon, lat) point respectively.
+        
+        Parameters
+        ----------
+        filename : str
+            Filename of the files to be saved. Each grid will be saved as a .dat file with a
+            filename of`{filename}_{layer_no}.dat`.
+        """
+        for i, r in enumerate(self.geody_specs['radii']):
+            # Evaluating coefficients at radii r and expanding to grid format
+            coef = spline.evaluate_coefs_at_r(r, self.knot_splines, self.coefs)
+            sh_coef = sh.rts_to_sh(coef)
+            grid = shtools.expand.MakeGridPoint(sh_coef,
+                                                self.geody_specs['lats'],
+                                                self.geody_specs['lons'],
+                                                norm=4)
+
+            # Saving grid
+            np.savetxt(f'{filename}_{i:03}.dat',
+                    np.vstack([self.geody_specs['lons'], self.geody_specs['lats'], grid]),
+                    fmt="%.2f, %.2f, %.5f")

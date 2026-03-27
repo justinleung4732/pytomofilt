@@ -9,10 +9,11 @@ from pathlib import Path
 from typing_extensions import Annotated
 from dataclasses import dataclass
 
+import numpy as np
+import pyshtools as shtools
 import typer
 
 from pytomofilt import model
-
 
 @dataclass
 class TomographicModelFiles:
@@ -49,7 +50,8 @@ def tomographic_model_from_path(input_path: Path) -> TomographicModelFiles:
 
 def ptf_reparam_filter_files(
         tomographic_model: Annotated[Path, typer.Argument(help="Path to a directory containing a tomographic model and filter")],
-        geodynamic_model: Annotated[Path, typer.Argument(help="Path to a directory containing data from a geodynamic model")]
+        geodynamic_model: Annotated[Path, typer.Argument(help="Path to a directory containing data from a geodynamic model")],
+        save_filtered_grid: Annotated[bool, typer.Option(help="Also save filtered results in geodynamic model format")] = False
     ):
     """
     Reparameterize and filter a geodynamic model so it can be compared with tomography
@@ -71,10 +73,14 @@ def ptf_reparam_filter_files(
             knots=ref_model.knots_r)
     comp_model.write(geodynamic_model.parts[-1] + "_reparam.sph")
     # Apply the resolution filter from the reference model to the comparison model
-    print(f"Filtering!")
+    print("Filtering!")
     filtered_comp_model = ref_model.filter(comp_model) 
     filtered_comp_model.write(geodynamic_model.parts[-1] + "_filtered.sph")
-    print(f"Done")
+    print("Done")
+
+    if save_filtered_grid:
+        print("Outputting in grid format")
+        comp_model.convert_to_grid_format(geodynamic_model.parts[-1] + "_filtered_grids")
 
 
 if __name__ == "__main__":
