@@ -4,7 +4,7 @@ import cartopy.crs as ccrs
 from cartopy.util import add_cyclic_point
 import matplotlib.pyplot as plt
 import numpy as np
-import pyshtools
+import pyshtools as shtools
 from scipy.interpolate import griddata
 
 from . import sh_tools as sh
@@ -77,7 +77,7 @@ def plot_shcoefs(coefs: np.ndarray,
     # small regularization to avoid contour artifacts (preserves original behavior)
     coefs = coefs + 1e-15
 
-    # Convert to pyshtools-compatible SH array
+    # Convert to shtools-compatible SH array
     sh_coefs = sh.rts_to_sh(coefs)
 
     # Build grid (MakeGrid2D expects the SH array, spacing and extents)
@@ -87,7 +87,7 @@ def plot_shcoefs(coefs: np.ndarray,
     west = 0
     east = 360
     
-    grid = pyshtools.expand.MakeGrid2D(
+    grid = shtools.expand.MakeGrid2D(
         sh_coefs, interval, lmax, norm=4,
         north=north, south=south, east=east, west=west
     )
@@ -97,7 +97,7 @@ def plot_shcoefs(coefs: np.ndarray,
     lons = np.arange(west, east + interval, interval)
 
     fig, ax, mappable = _plot_contour_map(lons, lats, grid, r=r, title=title, quantity=quantity,
-                                          cmap=cmap, coast_color=coast_color, 
+                                          cmap=cmap, coast_color=coast_color,
                                           projection=projection,
                                           scale_factor=scale_factor, levels=levels, 
                                           vmin=vmin, vmax=vmax, extend=extend, fig=fig, ax=ax,

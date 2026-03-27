@@ -64,10 +64,8 @@ def cubic_spline(coefs, depth, splines):
     coefs : array (n,)
         An array containing the coefficients evaluated at each depth. The first axis
         must be the same length as depth.
-    
     depth: list (n)
         A list containing values of the depth of each layer.
-
     splines: scipy.interpolate.CubicSpline object
         A callable CublineSpline object, which is the output from the calculate_splines
         function above. It returns the weights of each of the splines at the called 
@@ -98,3 +96,40 @@ def cubic_spline(coefs, depth, splines):
         coef_rts = coef_rts.reshape((wgt_layers.shape[-1],) + coefs.shape[1:])
 
     return coef_rts
+
+
+def evaluate_coefs_at_r(r, splines, spline_coefs):
+    """
+    Evaluates the spline coefficients at a given radius r.
+
+    Parameters
+    ----------
+    r : int, float, or array-like
+        The radius or radii at which to evaluate the spline coefficients.
+        Must be within the range of spline knots.
+    splines: scipy.interpolate.CubicSpline object
+        A callable CublineSpline object, which is the output from the calculate_splines
+        function above. It returns the weights of each of the splines at the called 
+        location.
+    spline_coefs : np.ndarray (n_basis,2,l+1,l+1)
+        Array of spline coefficients with shape (n_basis,2,l+1,l+1) containing
+        the coefficients to be evaluated.
+
+    Returns
+    -------
+    coefs: np.ndarray
+        Evaluated coefficients at radius r.
+        If r is a scalar (int or float), returns array with shape (2,l+1,l+1).
+        If r is array-like, returns array with shape (len(r),2,l+1,l+1).
+    """
+    # Ensure r is in range
+    if np.any(r < min(splines.x)) or np.any(r > max(splines.x)):
+        raise ValueError("all r's must be within the knot range.")
+    
+    # Evaluate all basis functions at r0
+    if isinstance(r,int) or isinstance(r,float):
+        coefs = np.einsum('j,jklm->klm', splines(r), spline_coefs)
+    else:
+        coefs = np.einsum('ij,jklm->iklm', splines(r), spline_coefs)
+    
+    return coefs
