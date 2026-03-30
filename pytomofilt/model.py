@@ -9,12 +9,12 @@ from . import filter
 from . import sh_tools as sh
 from . import plotting
 
-_rcmb = 3480.0
-_rmoho = 6346.691
+_dcmb = 2891.0
+_dmoho = 24.309
 
 @dataclasses.dataclass
 class RealLayer:
-    radius: float
+    depth: float
     lats: list[float]
     lons: list[float]
     vals: list[float]
@@ -24,7 +24,7 @@ class RealLayer:
 class RealLayerModel:
     layers: list[RealLayer]
 
-    def plot_radial_slice(self,layer_no):
+    def plot_depth_slice(self,layer_no):
         """
         Calls the plotting.plot_grid function to plot velocity variations for one the layers.
 
@@ -37,22 +37,33 @@ class RealLayerModel:
         plotting.plot_grid(self.layers[layer_no].lons,
                            self.layers[layer_no].lats,
                            self.layers[layer_no].vals,
-                           self.layers[layer_no].radius,
-                           title='Radial slice')
+                           self.layers[layer_no].depth,
+                           title='Depth slice')
 
 
-def _default_radii(rmin=_rcmb, rmax=_rmoho):
+def _default_depths(dmin=_dmoho, dmax=_dcmb):
     # Magic numbers from S20RTS model defs (and everything else)
-    KNOT_RADII = np.array([-1.00000, -0.78631, -0.59207, -0.41550, -0.25499, -0.10909,
-                            0.02353, 0.14409, 0.25367, 0.35329, 0.44384, 0.52615,
-                            0.60097, 0.66899, 0.73081, 0.78701, 0.83810, 0.88454,
-                            0.92675, 0.96512, 1.00000])
-    knots_r = (rmax - rmin) / 2.0 * KNOT_RADII + (rmin + rmax) / 2.0
-    return knots_r
+    # KNOT_DEPTHS = np.array([-1.00000, -0.78631, -0.59207, -0.41550, -0.25499, -0.10909,
+    #                         0.02353, 0.14409, 0.25367, 0.35329, 0.44384, 0.52615,
+    #                         0.60097, 0.66899, 0.73081, 0.78701, 0.83810, 0.88454,
+    #                         0.92675, 0.96512, 1.00000])
+    # knots_d = (dmax - dmin) / 2.0 * KNOT_DEPTHS + (dmin + dmax) / 2.0
+    KNOT_DEPTHS = np.array([1.00000, 0.96512, 0.92675, 0.88454, 0.83810, 0.78701,
+                            0.73081, 0.66899, 0.60097, 0.52615, 0.44384, 0.35329,
+                            0.25367, 0.14409, 0.02353, -0.10909, -0.25499, -0.41550,
+                            -0.59207, -0.78631, -1.00000])
+    knots_d = (dmin - dmax) / 2.0 * KNOT_DEPTHS + (dmin + dmax) / 2.0
+
+    # Avoid round-off problems for the end knots (with want the
+    # CMB to be exactly at 3480.0 or we could end up pulling data
+    # out of the core
+    knots_d[0] = dmin
+    knots_d[-1] = dmax
+    return knots_d
 
 class RTS_Model:
 
-    def __init__(self, lmax, rmin=_rcmb, rmax=_rmoho, knots=None):
+    def __init__(self, lmax, dmin=_dmoho, dmax=_dcmb, knots=None):
         """
         Create an instance of the RTS model object
 
@@ -61,36 +72,36 @@ class RTS_Model:
         lmax: int
             The maximum spherical harmonic degree parameterised in this
             model. 
-        rmin: float
-            The minimum radii of the RTS_model. If not specified, this
-            defaults to the radius of the CMB.
-        rmax: float
-            The maximum radii of the RTS_model. If not specified, this
-            defaults to the radius of the Moho.
+        dmin: float
+            The minimum depth of the RTS_model. If not specified, this
+            defaults to the depth of the Moho.
+        dmax: float
+            The maximum depth of the RTS_model. If not specified, this
+            defaults to the depth of the CMB.
         knots: array_like (n)
-            The list of n radii points to calculate the model coefficients.
-            If None, default knot radii from the RTS models are used, which
-            are scaled to the maximum as rmax and minimum as rmin.
+            The list of n depth points to calculate the model coefficients.
+            If None, default knot depth from the RTS models are used, which
+            are scaled to the maximum as dmax and minimum as dmin.
         """
         self.lmax = lmax
-        self.rmax = rmax
-        self.rmin = rmin
+        self.dmax = dmax
+        self.dmin = dmin
         if knots is None:
             # Declare spline knots from default
-            self.knots_r = _default_radii(rmin=_rcmb, rmax=_rmoho)
+            self.knots_d = _default_depths(dmin=_dmoho, dmax=_dcmb)
         else:
-            self.knots_r = np.asarray(knots) # Should cast into array
+            self.knots_d = np.asarray(knots) # Should cast into array
         # Build splines
-        self.knot_splines = spline.calculate_splines(self.knots_r)
+        self.knot_splines = spline.calculate_splines(self.knots_d)
         self.filter_obj = None
         # storage for geodynamic model specs (e.g. grid points)
-        self.geody_specs = {'radii' : None, 'lats' : None, 'lons' : None}
-        # storage for model - radius, real/imag, degree, order:
-        self.coefs = np.zeros((len(self.knots_r), 2, lmax+1, lmax+1))
+        self.geody_specs = {'depths' : None, 'lats' : None, 'lons' : None}
+        # storage for model - depth, real/imag, degree, order:
+        self.coefs = np.zeros((len(self.knots_d), 2, lmax+1, lmax+1))
 
 
     @classmethod
-    def from_file(cls, filename, rmin=_rcmb, rmax=_rmoho, knots=None):
+    def from_file(cls, filename, dmin=_dmoho, dmax=_dcmb, knots=None):
         """
         Inputs coefficients from a .sph file. The coefficients should be evaluated
         at the knot points specified. Coefficients are saved under the coefs 
@@ -100,35 +111,35 @@ class RTS_Model:
         ----------
         filename : str
             Filename of the .sph file to be read.
-        rmin: float
-            The minimum radii of the RTS_model. If not specified, this
-            defaults to the radius of the CMB.
-        rmax: float
-            The maximum radii of the RTS_model. If not specified, this
-            defaults to the radius of the Moho.
+        dmin: float
+            The minimum depth of the RTS_model. If not specified, this
+            defaults to the depth of the Moho.
+        dmax: float
+            The maximum depth of the RTS_model. If not specified, this
+            defaults to the depth of the CMB.
         knots: array_like (n)
-            The list of n radii points to calculate the model coefficients.
-            If None, default knot radii from the RTS models are used, which
-            are scaled to the maximum as rmax and minimum as rmin.
+            The list of n depth points to calculate the model coefficients.
+            If None, default knot depth from the RTS models are used, which
+            are scaled to the maximum as dmax and minimum as dmin.
         """
         f = open(filename, 'r')
 
         header = next(f).split()
         lmax = int(header[0])
         if knots is None:
-            knots = _default_radii(rmin=rmin, rmax=rmax)
+            knots = _default_depths(dmin=dmin, dmax=dmax)
         coefs = np.zeros((len(knots), 2, lmax+1, lmax+1))
 
         # The format of the rest of the file is a little bit odd. Coefficients
-        # for each radius are listed in blocks and within these blocks coefficients
+        # for each depth are listed in blocks and within these blocks coefficients
         # for each l are listed in rows. However, the maximum number of coefficients
         # all of the coefficients for a r,l combination. Things could go wrong if we
         # per line is 11, so for l > 6 we have to read multiple lines before we have
         # end up with too many coefficients for the r,l combination we expect and we
         # trap that at the end of the loop. Otherwise the file could be too short,
-        # in which case we won't have incremented ri enough.
+        # in which case we won't have incremented di enough.
         dataline = []
-        ri = 0
+        di = 0
         li = 0
         for line in f:  # Reads from second line (header has already been read)
             dataline.extend(line.split())
@@ -138,17 +149,17 @@ class RTS_Model:
                 # so we can process it into the numpy array
                 mi = 0
                 for m, coef in enumerate(dataline):
-                    assert ri < len(knots), f"Too many lines when incrementing ri! ri={ri}"
+                    assert di < len(knots), f"Too many lines when incrementing di! di={di}"
                     if m == 0:
-                        coefs[ri,0,li,mi] = float(coef)
+                        coefs[di,0,li,mi] = float(coef)
                         mi = mi + 1
                     elif m%2 == 1:
                         # Odd number in list, real coef
-                        coefs[ri,0,li,mi] = float(coef)
+                        coefs[di,0,li,mi] = float(coef)
                         # don't increment mi!
                     else:
                         # even number in list, imag coef
-                        coefs[ri,1,li,mi] = float(coef)
+                        coefs[di,1,li,mi] = float(coef)
                         mi = mi + 1
 
                 li = li + 1
@@ -157,28 +168,28 @@ class RTS_Model:
                     # We have read all the coefficients for this radial
                     # layer. Reset L and increment R. 
                     li = 0
-                    ri = ri + 1
+                    di = di + 1
                 dataline = [] # Start adding to a new set of coefficients
 
             assert len(dataline) < (li * 2) + 1, f"Too much data, li={li}, data={dataline}"
 
         f.close()
-        assert ri == len(knots), f"End of file without seeing all expected radii, ri={ri}, knots={knots}"
+        assert di == len(knots), f"End of file without seeing all expected depths, di={di}, knots={knots}"
         assert li == 0, "End of file without resetting L!"
 
         # Create new RTS model instance and return
-        RTS = cls(lmax, rmin, rmax, knots)
+        RTS = cls(lmax, dmin, dmax, knots)
         RTS.coefs = coefs
         return RTS
     
 
     @classmethod
-    def from_terra(self, terra_file, rmin=_rcmb, rmax=_rmoho, knots=None):
+    def from_terra(self, terra_file, dmin=_dmoho, dmax=_dcmb, knots=None):
         pass
 
     
     @classmethod
-    def from_directory(cls, directory, lmax, rmin=_rcmb, rmax=_rmoho, knots=None):
+    def from_directory(cls, directory, lmax, dmin=_dmoho, dmax=_dcmb, knots=None):
         """
         Inputs values from files stored in a directory, and automatically reparameterises the data (see 
         reparam for more information). Coefficients are saved under the coefs attribute of this class.
@@ -195,16 +206,16 @@ class RTS_Model:
         lmax: int
             The maximum spherical harmonic degree parameterised in this
             model. 
-        rmin: float
-            The minimum radii of the RTS_model. If not specified, this
-            defaults to the radius of the CMB.
-        rmax: float
-            The maximum radii of the RTS_model. If not specified, this
-            defaults to the radius of the Moho.
+        dmin: float
+            The minimum depth of the RTS_model. If not specified, this
+            defaults to the depth of the Moho.
+        dmax: float
+            The maximum depth of the RTS_model. If not specified, this
+            defaults to the depth of the CMB.
         knots: array_like (n)
-            The list of n radii points to calculate the model coefficients.
-            If None, default knot radii from the RTS models are used, which
-            are scaled to the maximum as rmax and minimum as rmin.
+            The list of n depth points to calculate the model coefficients.
+            If None, default knot depth from the RTS models are used, which
+            are scaled to the maximum as dmax and minimum as dmin.
             
         File format example
         ----------
@@ -219,22 +230,17 @@ class RTS_Model:
 
         layers = []
         depth = np.loadtxt(os.path.join(directory, 'depth_layers.dat')) # list of increasing depth
-        radii = 6371 - depth[::-1]  # Change depth into list of radii (deepest to shallowest)
-
-        # Files are listed from shallowest to deepest, we need to reverse the order because we
-        # want to save layers from deepest to shallowest
-        data_files = sorted([f for f in os.listdir(directory) if f.endswith('.dat') and f != 'depth_layers.dat'],
-                            reverse=True)
+        data_files = sorted([f for f in os.listdir(directory) if f.endswith('.dat') and f != 'depth_layers.dat'])
         assert len(data_files) == len(depth), "Number of data files does not match number of depths"
 
         for i, filename in enumerate(data_files):
             data = np.loadtxt(os.path.join(directory, filename))
-            layers.append(RealLayer(radii[i], lons = data[:,0],
+            layers.append(RealLayer(depth[i], lons = data[:,0],
                                     lats = data[:,1], vals = data[:,2]))
 
         # Write to class
-        RTS = cls(lmax, rmin, rmax, knots)
-        RTS.geody_specs['radii'] = radii
+        RTS = cls(lmax, dmin, dmax, knots)
+        RTS.geody_specs['depths'] = depth
         RTS.reparam(RealLayerModel(layers))
         return RTS
     
@@ -249,13 +255,13 @@ class RTS_Model:
         ----------
         layer_model : RealLayerModel class object
             A list of RealLayer objects, where each RealLayer object represents a list of values at a list
-            of longitude and latitude points at a certain radii.
+            of longitude and latitude points at a certain depth.
         """
         assert isinstance(layer_model, RealLayerModel), "layer model must be an instance of RealLayerModel"
         
         # Reparameterise file laterally
-        layer_radii = [l.radius for l in layer_model.layers]
-        sh_coefs = np.zeros((len(layer_radii),) + self.coefs.shape[1:])
+        layer_depths = [l.depth for l in layer_model.layers]
+        sh_coefs = np.zeros((len(layer_depths),) + self.coefs.shape[1:])
 
         for i, layer in enumerate(layer_model.layers):
             # SHExpandLSQ only works for real coefficients
@@ -266,7 +272,7 @@ class RTS_Model:
             sh_coefs[i] = sh.sh_to_rts(cilm)
 
         # Calculate coefficients at spline knots
-        self.coefs = spline.cubic_spline(sh_coefs, layer_radii,
+        self.coefs = spline.cubic_spline(sh_coefs, layer_depths,
                                          self.knot_splines)
 
 
@@ -317,7 +323,7 @@ class RTS_Model:
         assert isinstance(model, RTS_Model), "Input model must be an instance of RTS_Model to be filtered" 
         x = model.as_vector()
         x = self.filter_obj.apply_filter(x)
-        output_model = RTS_Model(self.lmax, self.rmin, self.rmax, self.knots_r)
+        output_model = RTS_Model(self.lmax, self.dmin, self.dmax, self.knots_d)
         output_model.from_vector(x)
         return output_model
         
@@ -335,14 +341,14 @@ class RTS_Model:
             a representation of the model coefficients as a 1D vector
         """
         lmx = self.lmax
-        ndp = len(self.knots_r)
+        ndp = len(self.knots_d)
         natd = (lmx + 1)**2 
         lenatd = natd * ndp
     
         vector = np.empty((lenatd))
         counter = 0
         # FIXME: Maybe numba this loop?
-        for ri in range(len(self.knots_r)):
+        for ri in range(len(self.knots_d)):
             for li in range(self.lmax + 1):
                 for mi in range(li+1):
                     vector[counter] = self.coefs[ri,0,li,mi]
@@ -367,7 +373,7 @@ class RTS_Model:
         
         counter = 0
         # FIXME: Maybe numba this loop?
-        for ri in range(len(self.knots_r)):
+        for ri in range(len(self.knots_d)):
             for li in range(self.lmax + 1):
                 for mi in range(li+1):
                     self.coefs[ri,0,li,mi] = vector[counter]
@@ -413,7 +419,7 @@ class RTS_Model:
         
         """
         plotting.plot_shcoefs(self.coefs[spline_point_np],
-                              r=self.knots_r[spline_point_np],
+                              r=self.knots_d[spline_point_np],
                               title='Radial slice')
 
 
@@ -429,7 +435,7 @@ class RTS_Model:
             Handle of the file to be written.
         """
         # Write coefs (knot by knot, and l by l)
-        for ri in range(len(self.knots_r)):
+        for ri in range(len(self.knots_d)):
             for li in range(self.lmax+1):
                 line = ""
                 items = 0
@@ -467,9 +473,9 @@ class RTS_Model:
             Filename of the files to be saved. Each grid will be saved as a .dat file with a
             filename of`{filename}_{layer_no}.dat`.
         """
-        for i, r in enumerate(self.geody_specs['radii']):
-            # Evaluating coefficients at radii r and expanding to grid format
-            coef = spline.evaluate_coefs_at_r(r, self.knot_splines, self.coefs)
+        for i, d in enumerate(self.geody_specs['depths']):
+            # Evaluating coefficients at depths d and expanding to grid format
+            coef = spline.evaluate_coefs_at_r(d, self.knot_splines, self.coefs)
             sh_coef = sh.rts_to_sh(coef)
             grid = shtools.expand.MakeGridPoint(sh_coef,
                                                 self.geody_specs['lats'],

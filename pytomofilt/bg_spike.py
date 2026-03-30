@@ -19,18 +19,37 @@ from . import spline
 from .plotting import plot_shcoefs
 
 
-_rcmb = 3480.0
-_rmoho = 6346.691
+_dcmb = 2891.0
+_dmoho = 24.309
 
-def _default_radii(rmin=_rcmb, rmax=_rmoho):
+def _default_depths(dmin=_dmoho, dmax=_dcmb):
     # Magic numbers from S20RTS model defs (and everything else)
-    KNOT_RADII = np.array([-1.00000, -0.78631, -0.59207, -0.41550, -0.25499, -0.10909,
-                            0.02353, 0.14409, 0.25367, 0.35329, 0.44384, 0.52615,
-                            0.60097, 0.66899, 0.73081, 0.78701, 0.83810, 0.88454,
-                            0.92675, 0.96512, 1.00000])
-    knots_r = (rmax - rmin) / 2.0 * KNOT_RADII + (rmin + rmax) / 2.0
-    return knots_r
+    KNOT_DEPTHS = np.array([1.00000, 0.96512, 0.92675, 0.88454, 0.83810, 0.78701,
+                            0.73081, 0.66899, 0.60097, 0.52615, 0.44384, 0.35329,
+                            0.25367, 0.14409, 0.02353, -0.10909, -0.25499, -0.41550,
+                            -0.59207, -0.78631, -1.00000])
+    knots_d = (dmin - dmax) / 2.0 * KNOT_DEPTHS + (dmin + dmax) / 2.0
 
+    # Avoid round-off problems for the end knots (with want the
+    # CMB to be exactly at 3480.0 or we could end up pulling data
+    # out of the core
+    knots_d[0] = dmin
+    knots_d[-1] = dmax
+    return knots_d
+
+
+def calculate_H_inv(splines):
+    import scipy.integrate
+    scipy.integrate.quad(lambda x:splines(x),splines.x[0],splines.x[-1])
+    H = np.zeros((21,21))
+    for i in range(21):
+        for j in range(21):
+            H[i,j] = scipy.integrate.quad(lambda x:splines(x)[i]*splines(x)[j],
+                                          splines.x[0],
+                                          splines.x[-1])[0]
+            
+    H_inv = np.linalg.inv(H)
+    return H_inv
 
 def create_lateral_delta_function(xlat, xlon, lmax):
     """
@@ -57,13 +76,13 @@ def create_lateral_delta_function(xlat, xlon, lmax):
     return ylm
 
 
-def create_radial_delta_function(r0, knots):
+def create_radial_delta_function(d0, knots):
     """
     Compute spline coefficients for a Dirac delta approximation at x0.
     
     Parameters
     ----------
-    r0 : float
+    d0 : float
         The location of the delta (must be within min(knots) to max(knots)).
     knots : array_like
         The knot points for the spline basis (same as in calculate_splines).
@@ -73,23 +92,32 @@ def create_radial_delta_function(r0, knots):
     np.ndarray
         Coefficients c_i = B_i(r0) for each basis spline i.
     """
-    # Ensure r0 is in range
-    if not min(knots) <= r0 <= max(knots):
-        raise ValueError("r0 must be within the knot range.")
+    # Ensure d0 is in range
+    if not min(knots) <= d0 <= max(knots):
+        raise ValueError("d0 must be within the knot range.")
 
     # Get the spline basis (as in calculate_splines)
     splines = spline.calculate_splines(knots)
 
-    # Evaluate all basis functions at r0
-    # splines(x0) returns shape (n_knots,) since y was identity
-    coefs = splines(r0)  # c_i = B_i(r0)
+    # Generate a list of depth layers
+    depths = np.arange(splines.x[0], splines.x[-1], 1)
+    depths = np.append(depths, splines.x[-1]) # ensure last depth is included
+    all_coefs = np.zeros(len(depths))
+
+    # Find the index of the depth layer closest to d0 and set that to 1 (delta function)
+    idx = np.abs(depths - d0).argmin()
+    depths[idx] = d0
+    all_coefs[idx] = 1
+
+    # Invert for spline coefficients
+    coefs = spline.cubic_spline(all_coefs, depths, splines).reshape(-1)
 
     return coefs, splines
 
 
 # get coefficients for delta function at spline depths
 def resolution_test_bg_spike(
-        r: Annotated[float, typer.Argument(help="Radius in km of the spike, between 3480 and 6346.691")],
+        d: Annotated[float, typer.Argument(help="Depth in km of the spike, between 24.309 and 2891")],
         xlat: Annotated[float, typer.Argument(help="Latitude of the spike, between -90 and 90 degrees")],
         xlon: Annotated[float, typer.Argument(help="Longitude of the spike, between -180 and 360 degrees")],
         tomographic_model: Annotated[Path, typer.Argument(help="Path to a directory containing a tomographic model and filter")]
@@ -100,16 +128,16 @@ def resolution_test_bg_spike(
 
     Parameters
     ----------
-    r : float
-        Radius in km of the spike, between 3480 and 6346.691
+    d : float
+        Depth in km of the spike, between 24.309 and 2891.
     xlat : float
-        Latitude of the spike, between -90 and 90 degrees
+        Latitude of the spike, between -90 and 90 degrees.
     xlon : float
         Longitude of the spike, between -180 and 360 degrees.
     tomographic_model : Path
-        Path to a directory containing a tomographic model and filter
+        Path to a directory containing a tomographic model and filter.
     """
-    assert _rcmb < r < _rmoho, "Radius must be between the core-mantle boundary and the Moho"
+    assert _dmoho < d < _dcmb, "Depth must be between the core-mantle boundary and the Moho"
     assert -90 <= xlat <= 90, "Latitude must be between -90 and 90 degrees"
     assert -180 <= xlon <= 360, "Longitude must be between -180 and 360 degrees"
 
@@ -118,7 +146,7 @@ def resolution_test_bg_spike(
     ref_model = model.RTS_Model.from_file(tomographic_model_spec.coef_file)
     ref_model.filter_from_file(tomographic_model_spec.evec_file, 
                                tomographic_model_spec.weights_file,
-                                0.0,verbose=True)
+                                0.001,verbose=True)
     lmax = ref_model.lmax
 
     # Create a delta function at the given location in spherical harmonics up to degree lmax.
@@ -126,12 +154,12 @@ def resolution_test_bg_spike(
     ylm = sh.sh_to_rts(ylm)
 
     # Calculate the spline coefficients at the knot points
-    knots_r = _default_radii(rmin=_rcmb, rmax=_rmoho)
-    r_coefs, knot_splines = create_radial_delta_function(r, knots_r)
-    spline_coefs = np.einsum('i,jkl->ijkl', r_coefs, ylm)  # shape (n_knots, 2, lmax+1, lmax+1)
+    knots_d = _default_depths(dmin=_dmoho, dmax=_dcmb)
+    d_coefs, knot_splines = create_radial_delta_function(d, knots_d)
+    spline_coefs = np.einsum('i,jkl->ijkl', d_coefs, ylm)  # shape (n_knots, 2, lmax+1, lmax+1)
 
     # Build a model object from the spline coefficients
-    bg_spike_model = model.RTS_Model(lmax=lmax, rmin=_rcmb, rmax=_rmoho, knots=knots_r)
+    bg_spike_model = model.RTS_Model(lmax=lmax, dmin=_dmoho, dmax=_dcmb, knots=knots_d)
     bg_spike_model.coefs = spline_coefs
 
     print("Filtering!")
@@ -149,9 +177,9 @@ def resolution_test_bg_spike(
     # Rectilinear plot spanning the right column (all rows)
     ax_rect = fig.add_subplot(gs[:, 1])
 
-    data1 = ylm
-    data2 = spline.evaluate_coefs_at_r(r, knot_splines, spline_coefs)
-    data3 = spline.evaluate_coefs_at_r(r, knot_splines, filtered_bg_spike_model.coefs)
+    # data1 = ylm
+    data1 = spline.evaluate_coefs_at_d(d, knot_splines, spline_coefs)
+    data3 = spline.evaluate_coefs_at_d(d, knot_splines, filtered_bg_spike_model.coefs)
 
     # Plot the spherical harmonic coefficients of the input delta function, the reparameterised
     # delta function, and the final filtered delta function
@@ -159,25 +187,25 @@ def resolution_test_bg_spike(
                  fig=fig, ax=ax[0],
                  cmap = 'Reds',
                  title="Input delta function in SH")
-    plot_shcoefs(data2,
-                 fig=fig, ax=ax[1],
-                 cmap = 'Reds',
-                 title="Reparameterised delta function",
-                 levels = h.levels) # use same levels as data1 for comparison
+    # plot_shcoefs(data2,
+    #              fig=fig, ax=ax[1],
+    #              cmap = 'Reds',
+    #              title="Reparameterised delta function",
+    #              levels = h.levels) # use same levels as data1 for comparison
     plot_shcoefs(data3,
                  fig=fig, ax=ax[2],
                  cmap = 'Reds',
                  title="Final filtered delta function",
                  levels = h.levels) # use same levels as data1 for comparison
 
-    # Plot radial profile of the spike before and after filtering
-    r_eval = np.linspace(_rcmb+1, _rmoho-1, 100)
+    # Plot depth profile of the spike before and after filtering
+    d_eval = np.linspace(_dmoho, _dcmb, 100)
 
     # Calculate value at spike lat,lon for each depth
-    coefs_pre_filter = spline.evaluate_coefs_at_r(r_eval, knot_splines, spline_coefs)
-    coefs_post_filter = spline.evaluate_coefs_at_r(r_eval, knot_splines,filtered_bg_spike_model.coefs)
-    spike_pre_filter = np.zeros_like(r_eval)
-    spike_post_filter = np.zeros_like(r_eval)
+    coefs_pre_filter = spline.evaluate_coefs_at_d(d_eval, knot_splines, spline_coefs)
+    coefs_post_filter = spline.evaluate_coefs_at_d(d_eval, knot_splines,filtered_bg_spike_model.coefs)
+    spike_pre_filter = np.zeros_like(d_eval)
+    spike_post_filter = np.zeros_like(d_eval)
     for i,(pre,post) in enumerate(zip(coefs_pre_filter, coefs_post_filter)):
         pre = sh.rts_to_sh(pre)
         post = sh.rts_to_sh(post)
@@ -185,8 +213,8 @@ def resolution_test_bg_spike(
         spike_post_filter[i] = shtools.expand.MakeGridPoint(post,xlat,xlon,norm=4)
 
     # Plot the spike value as a function of depth before and after filtering
-    ax_rect.plot(spike_pre_filter, 6371-r_eval, c='k', label="Pre-filter")
-    ax_rect.plot(spike_post_filter, 6371-r_eval, c='r', label="Post-filter")
+    ax_rect.plot(spike_pre_filter, d_eval, c='k', label="Pre-filter")
+    ax_rect.plot(spike_post_filter, d_eval, c='r', label="Post-filter")
     ax_rect.set_title("Radial delta function")
     ax_rect.set_xlabel("Spike value")
     ax_rect.set_ylabel("Depth (km)")
@@ -198,5 +226,6 @@ def resolution_test_bg_spike(
 
 
 if __name__ == "__main__":
-    resolution_test_bg_spike(r=5296, xlat=0, xlon=0,
+    # resolution_test_bg_spike(d=575, xlat=20, xlon=140,
+    resolution_test_bg_spike(d=350, xlat=35, xlon=-110,
                         tomographic_model=Path("/Users/justinleung/Library/Caches/pytomofilt/S20RTS"))
