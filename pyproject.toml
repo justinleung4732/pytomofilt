@@ -47,6 +47,7 @@ include = ["pytomofilt*"]
 
   [project.scripts]
   ptf_reparam_filter_files = "pytomofilt.cli:app"
+  resolution_test_bg_spike = 'pytomofilt.cli:app2'
 
 [tool.pytest.ini_options]
 pythonpath= [

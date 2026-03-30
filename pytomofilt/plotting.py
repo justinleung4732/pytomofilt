@@ -4,14 +4,14 @@ import cartopy.crs as ccrs
 from cartopy.util import add_cyclic_point
 import matplotlib.pyplot as plt
 import numpy as np
-import pyshtools
+import pyshtools as shtools
 from scipy.interpolate import griddata
 
 from . import sh_tools as sh
 
 
 def plot_shcoefs(coefs: np.ndarray,
-                 r: Optional[float] = None,
+                 d: Optional[float] = None,
                  title: str = '',
                  quantity: str = '',
                  cmap: str = 'RdBu',
@@ -29,7 +29,7 @@ def plot_shcoefs(coefs: np.ndarray,
                  labelsize: int = 15
                  ) -> Tuple[plt.Figure, plt.Axes, Any]:
     """
-    Plot a set of spherical harmonic coefficients `coefs`. Label the radius with `r` (km)
+    Plot a set of spherical harmonic coefficients `coefs`. Label the depth with `d` (km)
     and the value with `quantity`.  Harmonics are truncated at degree `lmax`.
     If `fig` and `ax` are supplied, then the plot is added to the provided matplotlib
     figure and axis handles, respectively.
@@ -38,8 +38,8 @@ def plot_shcoefs(coefs: np.ndarray,
     ----------
     coefs : np.ndarray
         RTS-format coefficients (as in your code). Shape expected to match sh_tools.rts_to_sh.
-    r : float, optional
-        Radius (km) to display in title.
+    d : float, optional
+        Depth (km) to display in title.
     title : str
         Title for the plot.
     quantity : str
@@ -77,7 +77,7 @@ def plot_shcoefs(coefs: np.ndarray,
     # small regularization to avoid contour artifacts (preserves original behavior)
     coefs = coefs + 1e-15
 
-    # Convert to pyshtools-compatible SH array
+    # Convert to shtools-compatible SH array
     sh_coefs = sh.rts_to_sh(coefs)
 
     # Build grid (MakeGrid2D expects the SH array, spacing and extents)
@@ -87,7 +87,7 @@ def plot_shcoefs(coefs: np.ndarray,
     west = 0
     east = 360
     
-    grid = pyshtools.expand.MakeGrid2D(
+    grid = shtools.expand.MakeGrid2D(
         sh_coefs, interval, lmax, norm=4,
         north=north, south=south, east=east, west=west
     )
@@ -96,8 +96,8 @@ def plot_shcoefs(coefs: np.ndarray,
     lats = np.arange(south, north + interval, interval)[::-1]  # N->S ordering preserved from original
     lons = np.arange(west, east + interval, interval)
 
-    fig, ax, mappable = _plot_contour_map(lons, lats, grid, r=r, title=title, quantity=quantity,
-                                          cmap=cmap, coast_color=coast_color, 
+    fig, ax, mappable = _plot_contour_map(lons, lats, grid, d=d, title=title, quantity=quantity,
+                                          cmap=cmap, coast_color=coast_color,
                                           projection=projection,
                                           scale_factor=scale_factor, levels=levels, 
                                           vmin=vmin, vmax=vmax, extend=extend, fig=fig, ax=ax,
@@ -109,7 +109,7 @@ def plot_shcoefs(coefs: np.ndarray,
 def plot_grid(lons: np.ndarray,
               lats: np.ndarray,
               vals: np.ndarray,
-              r: Optional[float] = None,
+              d: Optional[float] = None,
               title: str = '',
               quantity: str = '',
               cmap: str = 'RdBu',
@@ -136,8 +136,8 @@ def plot_grid(lons: np.ndarray,
         1D arrays of point coordinates (degrees).
     values : array-like
         Values corresponding to the coordinates.
-    r : float, optional
-        Radius (km) to display in title.
+    d : float, optional
+        Depth (km) to display in title.
     title : str
         Title for the plot.
     quantity : str
@@ -177,7 +177,7 @@ def plot_grid(lons: np.ndarray,
     grid = griddata((lons[::n], lats[::n]), vals[::n], (eq_lons[None,:], eq_lats[:,None]), method='linear')
     grid, eq_lons = add_cyclic_point(grid, coord=eq_lons) # Avoid white line between lon=0 and 360
 
-    fig, ax, mappable = _plot_contour_map(eq_lons, eq_lats, grid, r=r, title=title, 
+    fig, ax, mappable = _plot_contour_map(eq_lons, eq_lats, grid, d=d, title=title, 
                                           quantity=quantity, cmap=cmap, coast_color=coast_color, 
                                           projection=projection,
                                           scale_factor=scale_factor, levels=levels, 
@@ -190,7 +190,7 @@ def plot_grid(lons: np.ndarray,
 def _plot_contour_map(lons: np.ndarray,
                       lats: np.ndarray,
                       grid: np.ndarray,
-                      r: Optional[float] = None,
+                      d: Optional[float] = None,
                       title: str = '',
                       quantity: str = '',
                       cmap: str = 'RdBu',
@@ -256,9 +256,9 @@ def _plot_contour_map(lons: np.ndarray,
     cb.ax.tick_params(axis='both', which='major', labelsize=labelsize)
 
     # title formatting
-    if r is None:
+    if d is None:
         ax.set_title(f'{title}', size=15)
     else:
-        ax.set_title(f'{title} at {np.round(r,3)} km', size=15)
+        ax.set_title(f'{title} at {np.round(d,3)} km', size=15)
 
     return fig, ax, mappable
