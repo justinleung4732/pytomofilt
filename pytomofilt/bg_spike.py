@@ -146,7 +146,7 @@ def resolution_test_bg_spike(
     ref_model = model.RTS_Model.from_file(tomographic_model_spec.coef_file)
     ref_model.filter_from_file(tomographic_model_spec.evec_file, 
                                tomographic_model_spec.weights_file,
-                                0.001,verbose=True)
+                                0.01,verbose=True)
     lmax = ref_model.lmax
 
     # Create a delta function at the given location in spherical harmonics up to degree lmax.
@@ -167,33 +167,27 @@ def resolution_test_bg_spike(
 
     # Plotting
     print("Plotting!")
-    fig = plt.figure(figsize=(15,15))
-    gs = gridspec.GridSpec(3, 2, width_ratios=[3,1], hspace=0.3, wspace=0.6)
+    fig = plt.figure(figsize=(12,12))
+    gs = gridspec.GridSpec(2, 2, width_ratios=[4,1], hspace=0.1, wspace=0.5)
 
     ax = []
-    for i in range(3):
+    for i in range(2):
         ax.append(fig.add_subplot(gs[i, 0], projection=ccrs.Robinson()))
 
     # Rectilinear plot spanning the right column (all rows)
     ax_rect = fig.add_subplot(gs[:, 1])
 
-    # data1 = ylm
     data1 = spline.evaluate_coefs_at_d(d, knot_splines, spline_coefs)
-    data3 = spline.evaluate_coefs_at_d(d, knot_splines, filtered_bg_spike_model.coefs)
+    data2 = spline.evaluate_coefs_at_d(d, knot_splines, filtered_bg_spike_model.coefs)
 
     # Plot the spherical harmonic coefficients of the input delta function, the reparameterised
     # delta function, and the final filtered delta function
     _,_,h = plot_shcoefs(data1,
                  fig=fig, ax=ax[0],
                  cmap = 'Reds',
-                 title="Input delta function in SH")
-    # plot_shcoefs(data2,
-    #              fig=fig, ax=ax[1],
-    #              cmap = 'Reds',
-    #              title="Reparameterised delta function",
-    #              levels = h.levels) # use same levels as data1 for comparison
-    plot_shcoefs(data3,
-                 fig=fig, ax=ax[2],
+                 title="Input delta function in SH and spline basis")
+    plot_shcoefs(data2,
+                 fig=fig, ax=ax[1],
                  cmap = 'Reds',
                  title="Final filtered delta function",
                  levels = h.levels) # use same levels as data1 for comparison
