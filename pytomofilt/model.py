@@ -166,7 +166,7 @@ class RTS_Model:
 
         # Create new RTS model instance and return
         RTS = cls(lmax, rmin, rmax, knots)
-        RTS.coefs = coefs
+        RTS.coefs = coefs[::-1] # Reverse order of radii because we store from deepest to shallowest
         return RTS
     
 
@@ -372,10 +372,6 @@ class RTS_Model:
                     if mi != 0:
                         self.coefs[ri,1,li,mi] = vector[counter]
                         counter = counter + 1
-
-
-    def correlate(self, model):
-        return None
 
     
     def write(self, filename):
