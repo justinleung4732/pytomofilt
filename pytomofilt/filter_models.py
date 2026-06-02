@@ -6,6 +6,7 @@ These are used to provide a command line interface to
 common filtering tasks.
 """
 from pathlib import Path
+from typing import Optional
 from typing_extensions import Annotated
 from dataclasses import dataclass
 
@@ -42,6 +43,7 @@ class TomographicModelFiles:
     coef_file: Path
     weights_file: Path
     evec_file: Path
+    damping: Optional[float] = 20.0e-4
 
 
 def tomographic_model_from_name(model_name: str) -> TomographicModelFiles:
@@ -60,9 +62,20 @@ def tomographic_model_from_name(model_name: str) -> TomographicModelFiles:
         weights_file = existing_filters.fetch(f"{model_name}.smthp_42")
     else:
         weights_file = existing_filters.fetch(f"{model_name}.smthp_21")
+    match model_name:
+        case "SP12RTS":
+            damping = 50.0e-4
+        case "S12RTS":
+            damping = 40.0e-4
+        case "S20RTS":
+            damping = 35.0e-4
+        case "S40RTS":
+            damping = 20.0e-4
+        case _:
+            damping = 20.0e-4   # set arbitrary value if not specified
     return(TomographicModelFiles(
         name=model_name, base_path=pooch.os_cache('pytomofilt'), coef_file=coef_file,
-        weights_file=weights_file, evec_file=evec_file)
+        weights_file=weights_file, evec_file=evec_file, damping=damping)
         )
 
 
@@ -105,8 +118,10 @@ def ptf_reparam_filter_files(
     print(f"Setting up reference model for {tomographic_model_spec.name}.")
     ref_model = model.RTS_Model.from_file(tomographic_model_spec.coef_file)
     print(f"Setting up filter model for {tomographic_model_spec.name}.")
-    ref_model.filter_from_file(tomographic_model_spec.evec_file, tomographic_model_spec.weights_file,
-                                0.2,verbose=True)
+    ref_model.filter_from_file(tomographic_model_spec.evec_file,
+                               tomographic_model_spec.weights_file,
+                               tomographic_model_spec.damping,
+                               verbose=True)
 
     # Build a comparison model with the same parameterisation as the
     # reference model

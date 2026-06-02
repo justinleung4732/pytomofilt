@@ -38,6 +38,7 @@ include = ["pytomofilt*"]
     "platformdirs",
     "typer",
     "typing_extensions",
+    "pooch",
   ]
 
   [project.optional-dependencies]
