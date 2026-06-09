@@ -16,15 +16,15 @@ from . model import RTS_Model
 from . import sh_tools as sh
 from . import plotting
 
-_rcmb = 3480.0
-_rmoho = 6346.691
+_dcmb = 2981.0
+_dmoho = 24.309
 
 
 def calc_spectra(
         filename: Annotated[Path, typer.Argument(help="Path to the .sph file containing the model data.")],
-        rmin: Annotated[float, typer.Argument(help="Minimum radius for the model.")] = _rcmb, 
-        rmax: Annotated[float, typer.Argument(help="Maximum radius for the model.")] = _rmoho,
-        knots: Annotated[np.ndarray, typer.Argument(help="Radial knots for the model parameterization.")] = None,
+        dmin: Annotated[float, typer.Argument(help="Minimum depth of the model.")] = _dmoho, 
+        dmax: Annotated[float, typer.Argument(help="Maximum depth of the model.")] = _dcmb,
+        knots: Annotated[np.ndarray, typer.Argument(help="Depth knots for the model parameterization.")] = None,
         output_filename: Annotated[str, typer.Argument(help="Path to save the computed spectra.")] = ''
         ):
     """
@@ -35,24 +35,24 @@ def calc_spectra(
     ----------
     filename : Path
         Path to the .sph file containing the model data.
-    rmin : float, optional
-        Minimum radius for the model, by default 3480 (Core-Mantle Boundary radius).
-    rmax : float, optional
-        Maximum radius for the model, by default 6346.691 (Mohorovičić discontinuity radius).
+    dmin : float, optional
+        Minimum depth of the model, by default 24.309 km (Mohorovičić discontinuity depth).
+    dmax : float, optional
+        Maximum depth of the model, by default 2981 km (Core-Mantle Boundary depth).
     knots : array-like, optional
-        Radial knots for the model parameterization. If None, uses default knots from model files.
+        Depth knots for the model parameterization. If None, uses default knots from model files.
     output_filename : str, optional
         Path to save the computed spectra as a text file, by default path is empty.
     """
-    model = RTS_Model.from_file(filename, rmin=rmin, rmax=rmax, knots=knots)
-    spectra = np.empty_like(model.knots_r)
+    model = RTS_Model.from_file(filename, dmin=dmin, dmax=dmax, knots=knots)
+    spectra = np.empty_like(model.knots_d)
     for i, coef in enumerate(model.coefs):
         sh_coef = sh.rts_to_sh(coef)
         spectra[i] = shtools.spectralanalysis.spectrum(sh_coef, normalization='ortho')
 
     # Plot spectra. Data from mod.RTS_Model stores layers from deepest to shallowest, need to
     # reverse order as the spectra input requires layers from shallowest to deepest.
-    plotting.plot_heatmap(spectra, [str(np.round(k)) for k in model.knots_r[::-1]],
+    plotting.plot_heatmap(spectra, [str(np.round(k)) for k in model.knots_d[::-1]],
                           title = 'Power Spectra')
 
     # Save spectra data
@@ -63,9 +63,9 @@ def calc_spectra(
 def correlate(
         filename1: Annotated[Path, typer.Argument(help="Path to the .sph file containing the first model data.")],
         filename2: Annotated[Path, typer.Argument(help="Path to the .sph file containing the second model data.")],    
-        rmin: Annotated[float, typer.Argument(help="Minimum radius for the model.")] = _rcmb, 
-        rmax: Annotated[float, typer.Argument(help="Maximum radius for the model.")] = _rmoho,
-        knots: Annotated[np.ndarray, typer.Argument(help="Radial knots for the model parameterization.")] = None,
+        dmin: Annotated[float, typer.Argument(help="Minimum depth of the model.")] = _dmoho, 
+        dmax: Annotated[float, typer.Argument(help="Maximum depth of the model.")] = _dcmb,
+        knots: Annotated[np.ndarray, typer.Argument(help="Depth knots for the model parameterization.")] = None,
         output_filename: Annotated[str, typer.Argument(help="Path to save the computed spectra.")] = ''
         ):
     """
@@ -77,20 +77,20 @@ def correlate(
     ----------
     filename1, filename2 : Path
         Path to the .sph files containing the model data.
-    rmin : float, optional
-        Minimum radius for the model, by default 3480 (Core-Mantle Boundary radius).
-    rmax : float, optional
-        Maximum radius for the model, by default 6346.691 (Mohorovičić discontinuity radius).
+    dmin : float, optional
+        Minimum depth of the model, by default 24.309 km (Mohorovičić discontinuity depth).
+    dmax : float, optional
+        Maximum depth of the model, by default 2981 km (Core-Mantle Boundary depth).
     knots : array-like, optional
-        Radial knots for the model parameterization. If None, uses default knots from model files.
+        Depth knots for the model parameterization. If None, uses default knots from model files.
     output_filename : str, optional
         Path to save the correlation data as a text file, by default path is empty.
     """
 
-    model1 = RTS_Model.from_file(filename1, rmin=rmin, rmax=rmax, knots=knots)
-    model2 = RTS_Model.from_file(filename2, rmin=rmin, rmax=rmax, knots=knots)
-    assert np.all(model1.knots_r == model2.knots_r), "Knot radii must be the same"
-    corr = np.empty((len(model1.knots_r), model1.lmax+1))
+    model1 = RTS_Model.from_file(filename1, dmin=dmin, dmax=dmax, knots=knots)
+    model2 = RTS_Model.from_file(filename2, dmin=dmin, dmax=dmax, knots=knots)
+    assert np.all(model1.knots_d == model2.knots_d), "Knot radii must be the same"
+    corr = np.empty((len(model1.knots_d), model1.lmax+1))
 
     # loop through each layer, correlation assumes lower resolution of the two
     for ri, (coef1, coef2) in enumerate(zip(model1.coefs, model2.coefs)):
@@ -101,7 +101,7 @@ def correlate(
 
     # Plot correlation. Data from mod.RTS_Model stores layers from deepest to shallowest, need to
     # reverse order as the spectra input requires layers from shallowest to deepest.
-    plotting.plot_heatmap(corr, [str(np.round(k)) for k in model1.knots_r[::-1]],
+    plotting.plot_heatmap(corr, [str(np.round(k)) for k in model1.knots_d[::-1]],
                           title = 'Correlation')
 
     # Save correlation data

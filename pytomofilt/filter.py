@@ -186,16 +186,16 @@ class Filter(object):
         but with array operations when this is easy.
         
         Arguments: x. The input model as a 1D vector. If the 
-        model is represented by a set of values varying in radius,
-        r, degree, l and order, m, with real and imaginary components the 
-        order of the elements (r, l, m, s) in the vector is given by:
+        model is represented by a set of values varying in depth,
+        d, degree, l and order, m, with real and imaginary components the 
+        order of the elements (d, l, m, s) in the vector is given by:
         (0, 0, 0, r), (0, 1, 0, r), (0, 1, 1, r), (0, 1, 1, i), 
         (0, 2, 0, r), (0, 2, 1, r), (0, 2, 1, i), (0, 2, 2, r),
         (0, 2, 2, i), (0, 3, 0, r), (0, 3, 1, r), (0, 3, 1, i)
         ... (0, lmax, lamx, r), (0, lmax, lmax, i) ... 
-        (rmax, lmax, lmax, r), (rmax, lmax, lmax, i). That is, 
+        (dmax, lmax, lmax, r), (dmax, lmax, lmax, i). That is, 
         imaginary coeffs are skipped when they do not exist and the
-        data increments through l, m, then r, in that order.
+        data increments through l, m, then d, in that order.
  
         Returns: xout. The filtered model (same structure as x)
         """

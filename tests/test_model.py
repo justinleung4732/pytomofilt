@@ -13,8 +13,7 @@ class TestDataclass(unittest.TestCase):
         # Build a model
         layers = []
         for depth in [10.0, 20.0, 30.0, 50.0, 440.0, 660.0, 1000.0, 2000.0, 2500.0]:
-            radius = 6371 - depth
-            layers.append(mod.RealLayer(radius,
+            layers.append(mod.RealLayer(depth,
                                         lats=[90.0, 0.0, 0.0, 0.0, 0.0, -90.0],
                                         lons=[0.0, 0.0, 90.0, 180.0, 270.0, 0.0], 
                                         vals=[10.0, 20.0, 20.0, 20.0, 20.0, 10.0]
@@ -22,7 +21,7 @@ class TestDataclass(unittest.TestCase):
             
         layer_model = mod.RealLayerModel(layers)
         self.assertIsInstance(layer_model.layers[1], mod.RealLayer)
-        self.assertEqual(layer_model.layers[1].radius, 6351.0)
+        self.assertEqual(layer_model.layers[1].depth, 20.0)
         self.assertEqual(layer_model.layers[1].lats,
                          [90.0, 0.0, 0.0, 0.0, 0.0, -90.0])
         self.assertEqual(layer_model.layers[1].lons,
@@ -88,7 +87,7 @@ class TestFromFile(unittest.TestCase):
         """Test behavior when the file has too many lines."""
         with tempfile.NamedTemporaryFile(delete=False, mode='w') as line_file:
             line_file.write("1 1111111111111  24 000111111111111111111111\n")  # lmax = 1
-            for i in range(22): # writing for 22 radii instead of 21 (len(knot_radii))
+            for i in range(22): # writing for 22 depths instead of 21 (len(knots))
                 line_file.write("0.1\n")
                 line_file.write("0.2 0.3 0.4\n")
             line_filename = line_file.name
@@ -154,13 +153,12 @@ class TestReparam(unittest.TestCase):
 
     def setUp(self):
         """Set up a test instance and a mock RealLayerModel."""
-        self.test_obj = mod.RTS_Model(lmax=5, rmin=1, rmax=10, knots=[10,20,30])
+        self.test_obj = mod.RTS_Model(lmax=5, dmin=1, dmax=10, knots=[10,20,30])
         self.test_obj.coefs = np.zeros((3, 2, 6, 6))
 
         layers = []
         for depth in [10.0, 20.0, 30.0, 2000.0, 2500.0]:
-            radius = 6371 - depth
-            layers.append(mod.RealLayer(radius,
+            layers.append(mod.RealLayer(depth,
                                         lats=[90.0, 0.0, 0.0, 0.0, 0.0, -90.0],
                                         lons=[0.0, 0.0, 90.0, 180.0, 270.0, 0.0], 
                                         vals=[10.0, 20.0, 20.0, 20.0, 20.0, 10.0]
@@ -184,7 +182,7 @@ class TestWrite(unittest.TestCase):
     
     def setUp(self):
         """Set up a test instance of RTS_Model."""
-        self.test_obj = mod.RTS_Model(lmax=5, rmin=1, rmax=10, knots=[0.1, 0.2, 0.3])
+        self.test_obj = mod.RTS_Model(lmax=5, dmin=1, dmax=10, knots=[0.1, 0.2, 0.3])
         self.test_obj.coefs = np.zeros((3, 2, 6, 6))
 
 
@@ -205,7 +203,7 @@ class TestFilterMethods(unittest.TestCase):
 
     def setUp(self):
         """Set up a test instance of RTS_Model."""
-        self.test_obj = mod.RTS_Model(lmax=5, rmin=1, rmax=10, knots=[0.1, 0.2, 0.3])
+        self.test_obj = mod.RTS_Model(lmax=5, dmin=1, dmax=10, knots=[0.1, 0.2, 0.3])
         self.test_obj.coefs = np.zeros((3, 2, 6, 6))
         self.test_obj.filter_obj = MockFilter()
     
@@ -228,7 +226,7 @@ class TestFilterMethods(unittest.TestCase):
 
     def test_filter(self):
         """Test the filter method."""
-        model = mod.RTS_Model(lmax=5, rmin=1, rmax=10, knots=[0.1, 0.2, 0.3])
+        model = mod.RTS_Model(lmax=5, dmin=1, dmax=10, knots=[0.1, 0.2, 0.3])
         model.coefs = np.random.rand(3, 2, 6, 6)
         self.test_obj.filter_obj = MockFilter()
         filtered_model = self.test_obj.filter(model)
@@ -238,7 +236,7 @@ class TestFilterMethods(unittest.TestCase):
     def test_filter_without_filter_obj(self):
         """Ensure filter raises an error if filter_obj is not set."""
         self.test_obj.filter_obj = None
-        model = mod.RTS_Model(lmax=5, rmin=1, rmax=10, knots=[0.1, 0.2, 0.3])
+        model = mod.RTS_Model(lmax=5, dmin=1, dmax=10, knots=[0.1, 0.2, 0.3])
         with self.assertRaises(AssertionError):
             self.test_obj.filter(model)
     
