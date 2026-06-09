@@ -127,8 +127,8 @@ def ptf_reparam_filter_files(
     # reference model
     print(f"Reading geodynamics model from {geodynamic_model}")
     comp_model = model.RTS_Model.from_directory(geodynamic_model,
-            lmax=ref_model.lmax, rmin=ref_model.rmin, rmax=ref_model.rmax,
-            knots=ref_model.knots_r)
+            lmax=ref_model.lmax, dmin=ref_model.dmin, dmax=ref_model.dmax,
+            knots=ref_model.knots_d)
     comp_model.write(geodynamic_model.parts[-1] + "_reparam.sph")
     # Apply the resolution filter from the reference model to the comparison model
     print(f"Filtering!")
