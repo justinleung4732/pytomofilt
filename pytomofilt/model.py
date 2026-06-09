@@ -43,7 +43,7 @@ class RealLayerModel:
 
 def _default_depths(dmin=_dmoho, dmax=_dcmb):
     # Magic numbers from S20RTS model defs (and everything else)
-    KNOT_depth = np.array([-1.00000, 0.96512, 0.92675, 0.88454, 0.83810, 0.78701,
+    KNOT_depth = np.array([1.00000, 0.96512, 0.92675, 0.88454, 0.83810, 0.78701,
                             0.73081, 0.66899, 0.60097, 0.52615, 0.44384, 0.35329,
                             0.25367, 0.14409, 0.02353, -0.10909, -0.25499, -0.41550,
                             -0.59207, -0.78631, -1.00000])
@@ -166,7 +166,7 @@ class RTS_Model:
 
         # Create new RTS model instance and return
         RTS = cls(lmax, dmin, dmax, knots)
-        RTS.coefs = coefs[::-1] # Reverse order of depth because we store from deepest to shallowest
+        RTS.coefs = coefs
         return RTS
     
 
@@ -218,8 +218,7 @@ class RTS_Model:
         layers = []
         depth = np.loadtxt(os.path.join(directory, 'depth_layers.dat')) # list of increasing depth
 
-        # Files are listed from shallowest to deepest, we need to reverse the order because we
-        # want to save layers from deepest to shallowest
+        # Files are listed from shallowest to deepest
         data_files = sorted([f for f in os.listdir(directory) if f.endswith('.dat') and f != 'depth_layers.dat'])
         assert len(data_files) == len(depth), "Number of data files does not match number of depths"
 
